@@ -1,0 +1,25 @@
+{
+  "name": "Reclamation List",
+  "author": {
+    "name": "Cyrill Kunitskiy",
+    "email": "cyrill.kunitskiy@abbyy.com",
+    "url": ""
+  },
+  "defaultLocale": "en",
+  "private": true,
+  "location": {
+    "support": {
+      "ticket_sidebar": "assets/iframe.html"
+    }
+  },
+  "parameters": [
+   {
+     "name": "fieldId",
+     "type": "text",
+     "required": true,
+     "default": "360000117189"
+    }    
+  ],
+  "version": "1.0",
+  "frameworkVersion": "2.0"
+}

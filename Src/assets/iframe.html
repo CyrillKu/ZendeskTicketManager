@@ -1,0 +1,108 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- http://garden.zendesk.com -->
+  <link rel="stylesheet" href="https://assets.zendesk.com/apps/sdk-assets/css/2/zendesk_garden.css" type="text/css">
+</head>
+<body>
+    <ul data-rmList>    	
+    </ul>
+
+  <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
+	<script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
+	<script>
+    // Initialise the Zendesk JavaScript API client
+    // https://developer.zendesk.com/apps/docs/apps-v2
+
+
+	var version = "1.0.1";
+    console.log("Version is " + version);
+
+    var reclamationsCustomFieldId= '';
+    var client = ZAFClient.init();
+    client.invoke ('resize', { width: '100%', height: '200px' });  
+
+    // получаем список рекламаций из поля reclamations и заполняем список data-rmList при загрузке приложения
+    client.on ('app.registered', function(data) {
+        client.metadata().then(function(metadata) {
+            reclamationsCustomFieldId =  metadata.settings.fieldId;
+            return reclamationsCustomFieldId;
+            }).then(reclamationsCustomFieldId => {
+                client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(function(data) {                    
+                    var reclamations = data['ticket.customField:custom_field_'+reclamationsCustomFieldId];
+                    if (reclamations !== '' && reclamations !== null && reclamations !== undefined) {                                            
+                        addReclamationsToList(reclamations);
+                    }
+                });   
+        });          
+    });
+
+    // при изменении комментария получаем из комментария ссылку на рекламацию и добавляем ее в список data-rmList
+    client.on('comment.text.changed', function(data) {
+        client.metadata().then(function(metadata) {
+            reclamationsCustomFieldId =  metadata.settings.fieldId;
+            return reclamationsCustomFieldId;
+            }).then(reclamationsCustomFieldId => {
+                getReclamationLinkFromComment(reclamationsCustomFieldId);
+            });
+        });
+
+    // добавляем ссылку на рекламацию в приложение
+    function addLinkField(reclamationNumber) {
+    	var list = document.querySelector('ul[data-rmList]');
+    	var li = document.createElement('li');
+    	var a = document.createElement('a');
+    	a.innerHTML = "Reclamation #" + reclamationNumber.trim();
+    	a.href = 'http://rm/view/' + reclamationNumber.trim();
+    	a.target = '_blank';
+    	list.appendChild(li);
+    	li.appendChild(a);
+    }
+
+    // добавляем ссылку на рекламацию в приложение
+    function getReclamationLinkFromComment(fieldId) {  	    	
+    	client.get('ticket.customField:custom_field_'+fieldId).then(function(data) {
+    		var reclamations  = data['ticket.customField:custom_field_'+fieldId];
+                return reclamations;                		
+    	}).then(reclamations => {
+    		client.get('ticket.comment').then(function(data) {    	
+		    commentText = data ["ticket.comment"].text;
+		    var parser = new DOMParser();
+		    var doc = parser.parseFromString(commentText, "text/html");
+		    var links = doc.links;
+            
+            //фильтруем все извлеченные из комментария ссылки по ключам 'reclamation' и '/rm/'
+		    for (var i = 0; i < links.length; i++) {                
+                if (links[i].href.indexOf('reclamation')>0||links[i].href.indexOf('/rm/')>0) {
+                    var k = links[i].href.lastIndexOf("/");
+                    var reclamationNumber = links[i].href.substring (k+1,links[i].href.length);
+                    if ( reclamations !== '' && reclamations !== null && reclamations !== undefined) {
+                        if ( !reclamations.includes(reclamationNumber)) {
+                            reclamations = reclamations + links[i].href.substring (k+1, links[i].href.length)+', ';
+                            addLinkField(links[i].href.substring (k+1, links[i].href.length));                        
+                        }
+                    } else {
+                        reclamations = links[i].href.substring (k+1, links[i].href.length) + ', ';
+                        addLinkField(links[i].href.substring (k+1, links[i].href.length));
+                    }                  
+				}
+			}
+			//console.log(reclamations);
+			client.set('ticket.customField:custom_field_' + fieldId, reclamations);	
+			return reclamations;			
+     		});
+    	});
+    }
+
+    function addReclamationsToList(reclamationsString) {
+    	var reclamationArray = reclamationsString.trim().split(',');    	
+    	//console.log(reclamationArray);
+    	reclamationArray.forEach(function(item) {
+    		if (item !== '') {
+    			addLinkField(item);
+   			}			
+   		});    	
+    }
+	</script>
+</body>
+</html>
