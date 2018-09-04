@@ -9,7 +9,8 @@
 <body>
     <ul data-rmList>    	
     </ul>
-    <button id="download" class="btn btn-default button-bottom" onclick="createNewRec()" >New</button>
+    <button id="download" class="btn btn-default button-bottom" onclick="createNewReclamation()">New</button>
+    
      
 
   <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
@@ -108,8 +109,8 @@
    		});    	
     }
 
-    function createNewRec(){
-        client.get('ticket.id').then(function(data){
+    function createNewReclamation() {
+        client.get('ticket.id').then(function(data) {
             var requestNumber = data['ticket.id'];
             window.open('https://reclamationmanager.abbyy.com/NewReclamation.aspx?description=%5burl%3dhttps%3a%2f%2fabbyy.zendesk.com%2fagent%2ftickets%2f'+requestNumber+'%5dZendesk+request+%23'+requestNumber+'%5b%2furl%5d&tags=helpdesk');
         });
