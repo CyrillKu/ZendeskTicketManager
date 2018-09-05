@@ -1,4 +1,8 @@
-.button-bottom{
+.menu-bottom{
     position: absolute;
     bottom: 0;
+}
+.close-button{
+    width: 10%!important; 
+    position: absolute!important;
 }

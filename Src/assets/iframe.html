@@ -5,23 +5,30 @@
   <link rel="stylesheet" href="https://assets.zendesk.com/apps/sdk-assets/css/2/zendesk_garden.css" type="text/css">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
   <link rel="stylesheet" href="main.css">
+  
 </head>
 <body>
     <ul data-rmList>    	
     </ul>
-    <button id="download" class="btn btn-default button-bottom" onclick="createNewReclamation()">New</button>
+    <button id="close" type="button" class="close close-button hidden" aria-label="Close" onclick="removeReclamationFromList(this)">
+        <span aria-hidden="true" >&times;</span>
+    </button>
+    <div class="menu-bottom">
+        <button id="download" class="btn btn-default" onclick="createNewReclamation()">New</button>
+        <button id="about" class="btn btn-default" onclick="openAboutPage()">About</button>
+    </div>
     
      
 
   <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
-	<script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
+    <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
 	<script>
     // Initialise the Zendesk JavaScript API client
     // https://developer.zendesk.com/apps/docs/apps-v2
 
 
 	var version = "1.0.2";
-    console.log("Version is " + version);
+    console.log ("Version is " + version);
 
     var reclamationsCustomFieldId= '';
     var client = ZAFClient.init();
@@ -56,12 +63,16 @@
     function addLinkField(reclamationNumber) {
     	var list = document.querySelector('ul[data-rmList]');
     	var li = document.createElement('li');
-    	var a = document.createElement('a');
-    	a.innerHTML = "Reclamation #" + reclamationNumber.trim();
+        var a = document.createElement('a');
+        var closeTemplate = document.getElementById('close');
+        var closeButton = closeTemplate.cloneNode(true);
+        closeButton.classList.remove('hidden');        
+        a.innerHTML = 'Reclamation #' + reclamationNumber.trim();
     	a.href = 'http://rm/view/' + reclamationNumber.trim();
     	a.target = '_blank';
     	list.appendChild(li);
-    	li.appendChild(a);
+        li.appendChild(a);
+        li.appendChild(closeButton);
     }
 
     // добавляем ссылку на рекламацию в приложение
@@ -79,16 +90,17 @@
             //фильтруем все извлеченные из комментария ссылки по ключам 'reclamation' и '/rm/'
 		    for (var i = 0; i < links.length; i++) {                
                 if (links[i].href.indexOf('reclamation')>0||links[i].href.indexOf('/rm/')>0) {
-                    var k = links[i].href.lastIndexOf("/");
-                    var reclamationNumber = links[i].href.substring (k+1,links[i].href.length);
+                    var reclamationNumber = getReclamationNumberFromURL(links[i]);
                     if ( reclamations !== '' && reclamations !== null && reclamations !== undefined) {
                         if ( !reclamations.includes(reclamationNumber)) {
-                            reclamations = reclamations + links[i].href.substring (k+1, links[i].href.length)+', ';
-                            addLinkField(links[i].href.substring (k+1, links[i].href.length));                        
+                            reclamations = reclamations + reclamationNumber+',';
+                            addLinkField(reclamationNumber);  
+                            addReclamationTag(reclamationNumber);                      
                         }
                     } else {
-                        reclamations = links[i].href.substring (k+1, links[i].href.length) + ', ';
-                        addLinkField(links[i].href.substring (k+1, links[i].href.length));
+                        reclamations = reclamationNumber + ',';
+                        addLinkField(reclamationNumber);
+                        addReclamationTag(reclamationNumber);
                     }                  
 				}
 			}
@@ -115,6 +127,43 @@
             window.open('https://reclamationmanager.abbyy.com/NewReclamation.aspx?description=%5burl%3dhttps%3a%2f%2fabbyy.zendesk.com%2fagent%2ftickets%2f'+requestNumber+'%5dZendesk+request+%23'+requestNumber+'%5b%2furl%5d&tags=helpdesk');
         });
     }
+
+    function removeReclamationFromList(element) {
+        client.metadata().then(function(metadata) {
+            reclamationsCustomFieldId = metadata.settings.fieldId;
+            return reclamationsCustomFieldId;
+        }).then(reclamationsCustomFieldId => {
+            client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(function(data) {
+                var oldReclamations = data['ticket.customField:custom_field_' + reclamationsCustomFieldId];
+                var reclamationNumber = getReclamationNumberFromURL(element.previousSibling);
+                var newReclamations = oldReclamations.replace(reclamationNumber + ',','');
+                removeReclamationTag(reclamationNumber);
+                return newReclamations;
+            }).then(newReclamations=> {
+                client.set('ticket.customField:custom_field_' + reclamationsCustomFieldId, newReclamations);
+                element.parentNode.remove();
+            });
+        });
+    }
+
+    function openAboutPage() {
+        window.open('https://wiki.abbyy.com/display/SP/Integration+with+Reclamation+Manager');
+
+    }
+
+    function addReclamationTag(value) {
+        client.invoke('ticket.tags.add', 'rm'+value);  
+        client.invoke('ticket.tags.add', 'reclamation');  
+    }
+
+    function removeReclamationTag(value) {
+        client.invoke('ticket.tags.remove', 'rm'+value);
+    }
+
+    function getReclamationNumberFromURL(link) {
+       return link.href.substring (link.href.length-6,link.href.length);
+    }
+
 	</script>
 </body>
 </html>
