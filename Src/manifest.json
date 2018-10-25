@@ -9,16 +9,35 @@
   "private": true,
   "location": {
     "support": {
-      "ticket_sidebar": "assets/iframe.html"
+      "ticket_sidebar": "assets/iframe.html",
+      "new_ticket_sidebar": "assets/iframe.html?location=new_ticket_sidebar"
     }
   },
   "parameters": [
    {
-     "name": "fieldId",
+     "name": "reclamationsFieldId",
      "type": "text",
      "required": true,
      "default": "360000117189"
-    }    
+    },
+    {
+      "name": "serverUrl",
+      "type": "text",
+      "required": true,
+      "default": "https://abbyy1515753043.zendesk.com/"
+     },
+    {
+      "name": "linkedDataFieldId",
+      "type": "text",
+      "required": true,
+      "default": "360000040365"
+    },
+    {
+      "name": "token",
+      "type": "text",
+      "required": true,
+      "default": "4b455826dfa4d964475dbf710da2ddd3939a662cb1af7118353a899707c35a91"
+    }      
   ],
   "version": "1.0",
   "frameworkVersion": "2.0"
