@@ -53,10 +53,7 @@
 
     // при изменении комментария получаем из комментария ссылку на рекламацию и добавляем ее в список data-rmList
     client.on('comment.text.changed', function(data) {
-        client.metadata().then(function(metadata) {
-            reclamationsCustomFieldId =  metadata.settings.reclamationsFieldId;
-            getReclamationLinkFromComment(reclamationsCustomFieldId);
-            });
+        getReclamationLinkFromComment(reclamationsCustomFieldId);
         });
 
     // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
@@ -142,24 +139,20 @@
  
     // удалить рекламацию из списка формы RecMan
     function removeReclamationFromList(element) {
-        client.metadata().then(function(metadata) {
-            reclamationsCustomFieldId = metadata.settings.reclamationsFieldId;
-            return reclamationsCustomFieldId;
-        }).then(reclamationsCustomFieldId => {
-            client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(function(data) {
-                var oldReclamations = data['ticket.customField:custom_field_' + reclamationsCustomFieldId];
-                var reclamationNumber = getReclamationNumberFromURL(element.previousSibling);
-                var newReclamations = oldReclamations.replace(reclamationNumber + ',','');
-                removeReclamationTag(reclamationNumber);
-                return newReclamations;
-            }).then(newReclamations=> {
-                client.set('ticket.customField:custom_field_' + reclamationsCustomFieldId, newReclamations);
-                element.parentNode.remove();
-                if (newReclamations == ''){
-                    removeReclamationTag('reclamation');
-                }
-            });
+        client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(function(data) {
+            var oldReclamations = data['ticket.customField:custom_field_' + reclamationsCustomFieldId];
+            var reclamationNumber = getReclamationNumberFromURL(element.previousSibling);
+            var newReclamations = oldReclamations.replace(reclamationNumber + ',','');
+            removeReclamationTag(reclamationNumber);
+            return newReclamations;
+        }).then(newReclamations=> {
+            client.set('ticket.customField:custom_field_' + reclamationsCustomFieldId, newReclamations);
+            element.parentNode.remove();
+            if (newReclamations == ''){
+                removeReclamationTag('reclamation');
+            }
         });
+        
     }
  
     // открыть справку (кнопка)
@@ -209,11 +202,14 @@
                         var ticket = (data['ticket']);
                         var parentReclamations = ticket.custom_fields.find(item => item.id == settings.reclamationsFieldId).value;
                         var reclamationArray= reclamationsFromField.split(',');
+                        var changed = false;
                         reclamationArray.forEach(function (reclamation){
                             if ( reclamation !=='' && parentReclamations.indexOf(reclamation)<0) {
                                 parentReclamations += reclamation + ',';
+                                changed = true;
                             }
                         });
+                        if (changed) {
                         var query = '{"ticket":{"status": "open", "comment": {"public": "false", "body": "Child ticket has been updated."} , "custom_fields":{"id":"' + settings.reclamationsFieldId+'","value":"' + parentReclamations +'"}}}'
                         var fetchSelf = makeFetchBody (url, 'PUT', query , Authorization);
                         client.request(fetchSelf).then(function(data) {
@@ -228,6 +224,7 @@
                             var fetchSelf = makeFetchBody (url, 'PUT', query, Authorization);
                             client.request(fetchSelf);
                         });
+                        } else console.log("No changes");
                     });
                 }
             });

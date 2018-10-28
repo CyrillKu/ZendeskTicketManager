@@ -1,4 +1,5 @@
 Src/tmp/app-20180905171149.zip
 Src/.zat
 Src/tmp/app-20180905182925.zip
-Src/tmp/app-20180919174413.zip
+*.zip
+*.db
