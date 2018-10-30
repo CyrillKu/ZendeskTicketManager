@@ -27,7 +27,7 @@
     // https://developer.zendesk.com/apps/docs/apps-v2
 
 
-	var version = "1.0.3";
+	var version = "1.0.3.1";
     console.log ("Version is " + version);
     var reclamationsCustomFieldId;
     var Authorization = 'Bearer ';
@@ -196,35 +196,67 @@
             }).then (linkedTicketId=>{
                 if (linkedTicketId !== undefined){
                     Authorization += settings.token;
-                    var url = settings.serverUrl+'api/v2/tickets/'+linkedTicketId+'.json';
+                    var url = settings.serverUrl+'api/v2/tickets/' + linkedTicketId + '.json';
+                    var tagsUrl = settings.serverUrl+'api/v2/tickets/' + linkedTicketId + '/tags.json';
                     var fetchSelf = makeFetchBody(url, 'GET', '', Authorization); 
                     client.request(fetchSelf).then(function(data) {
-                        var ticket = (data['ticket']);
-                        var parentReclamations = ticket.custom_fields.find(item => item.id == settings.reclamationsFieldId).value;
-                        var reclamationArray= reclamationsFromField.split(',');
-                        var changed = false;
-                        reclamationArray.forEach(function (reclamation){
-                            if ( reclamation !=='' && parentReclamations.indexOf(reclamation)<0) {
-                                parentReclamations += reclamation + ',';
-                                changed = true;
+                        var linkedTicket = (data['ticket']);
+                        //все действия выполняем только если parent ticket не closed
+                        if (linkedTicket.status !== 'closed') {
+                            var parentReclamations = '';
+                            if (linkedTicket.custom_fields.find(item => item.id == settings.reclamationsFieldId).value !== null)
+                            {
+                                parentReclamations = linkedTicket.custom_fields.find(item => item.id == settings.reclamationsFieldId).value;
                             }
-                        });
-                        if (changed) {
-                        var query = '{"ticket":{"status": "open", "comment": {"public": "false", "body": "Child ticket has been updated."} , "custom_fields":{"id":"' + settings.reclamationsFieldId+'","value":"' + parentReclamations +'"}}}'
-                        var fetchSelf = makeFetchBody (url, 'PUT', query , Authorization);
-                        client.request(fetchSelf).then(function(data) {
-                            var query = '{"tags": [" "'
-                            reclamationArray.forEach(function(reclamation) {
-                                if ( reclamation !=='') {
-                                    query+=',"rm'+reclamation+'"';
+
+                            var reclamationArray = new Array();
+                            if (reclamationsFromField !== null) {
+                                reclamationArray = reclamationsFromField.split(',');
+                            } 
+                            //взводим флаг на изменения в списке рекламаций
+                            var changed = false;
+                            reclamationArray.forEach(function (reclamation){
+                                //если добавленной рекламации нет в списке рекламаций parent ticket - добавляем рекламацию в список, включаем флаг
+                                if ( reclamation !=='' && (parentReclamations.indexOf(reclamation)<0)) {
+                                    parentReclamations += reclamation + ',';
+                                    changed = true;
                                 }
                             });
-                            query+=']}';
-                            url = settings.serverUrl+'api/v2/tickets/' + linkedTicketId + '/tags.json';
-                            var fetchSelf = makeFetchBody (url, 'PUT', query, Authorization);
-                            client.request(fetchSelf);
-                        });
-                        } else console.log("No changes");
+                            //если изменения были и статус parent ticket - не 'solved', то отправляем в parent ticket рекламации, теги, сообщение, статус
+                            if (changed && linkedTicket.status !== 'solved') {
+                                var query = '{"ticket":{"status": "open", "comment": {"public": "false", "body": "Child ticket has been updated."} , "custom_fields":{"id":"' + settings.reclamationsFieldId+'","value":"' + parentReclamations +'"}}}'
+                                var fetchSelf = makeFetchBody (url, 'PUT', query , Authorization);
+                                client.request(fetchSelf).then(function(data) {
+                                    var query = '{"tags": [" "'
+                                    reclamationArray.forEach(function(reclamation) {
+                                        if ( reclamation !=='') {
+                                            query+=',"rm'+reclamation+'"';
+                                        }
+                                    });
+                                query+=']}';
+                                var fetchSelf = makeFetchBody (tagsUrl, 'PUT', query, Authorization);
+                                client.request(fetchSelf);
+                                });
+                            } else if (!changed && linkedTicket.status !== 'solved') {
+                                var query = '{"ticket":{"status": "open", "comment": {"public": "false", "body": "Child ticket has been updated."}}}'
+                                var fetchSelf = makeFetchBody (url, 'PUT', query , Authorization);
+                                client.request(fetchSelf);                            
+                            } else if (changed && linkedTicket.status == 'solved') {
+                                var query = '{"ticket":{"custom_fields":{"id":"' + settings.reclamationsFieldId+'","value":"' + parentReclamations +'"}}}'
+                                var fetchSelf = makeFetchBody (url, 'PUT', query , Authorization);
+                                client.request(fetchSelf).then(function(data) {
+                                    var query = '{"tags": [" "'
+                                    reclamationArray.forEach(function(reclamation) {
+                                        if ( reclamation !=='') {
+                                            query+=',"rm'+reclamation+'"';
+                                        }
+                                    });
+                                query+=']}';
+                                var fetchSelf = makeFetchBody (tagsUrl, 'PUT', query, Authorization);
+                                client.request(fetchSelf);
+                                });
+                            }
+                        }
                     });
                 }
             });
