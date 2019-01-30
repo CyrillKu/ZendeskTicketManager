@@ -6,3 +6,11 @@
     width: 10%!important; 
     position: absolute!important;
 }
+.rmStatus-good {
+    padding-left: 25%!important;
+    color: #019d5a;
+}
+.rmStatus-bad {
+    padding-left: 25%!important;
+    color: #d8432e;
+}

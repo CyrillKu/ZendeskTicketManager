@@ -1,5 +1,5 @@
 {
-  "name": "Reclamation List",
+  "name": "Features & Reclamations",
   "author": {
     "name": "Cyrill Kunitskiy",
     "email": "cyrill.kunitskiy@abbyy.com",
@@ -13,19 +13,18 @@
       "new_ticket_sidebar": "assets/iframe.html?location=new_ticket_sidebar"
     }
   },
-  "parameters": [
-   {
-     "name": "reclamationsFieldId",
-     "type": "text",
-     "required": true,
-     "default": "360000117189"
+  "parameters": [{
+      "name": "reclamationsFieldId",
+      "type": "text",
+      "required": true,
+      "default": "360000117189"
     },
     {
       "name": "serverUrl",
       "type": "text",
       "required": true,
       "default": "https://abbyy1515753043.zendesk.com/"
-     },
+    },
     {
       "name": "linkedDataFieldId",
       "type": "text",
@@ -35,10 +34,11 @@
     {
       "name": "token",
       "type": "text",
+      "secure": true,
       "required": true,
-      "default": "4b455826dfa4d964475dbf710da2ddd3939a662cb1af7118353a899707c35a91"
-    }      
+      "default": "71580c9f458221416ef8b30136324e3e8d260b7c2560334f6aaa28fe3f21a5ba"
+    }
   ],
-  "version": "1.0",
+  "version": "1.0.3.1",
   "frameworkVersion": "2.0"
 }
