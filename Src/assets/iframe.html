@@ -28,50 +28,60 @@
     <script>
         // Initialise the Zendesk JavaScript API client
         // https://developer.zendesk.com/apps/docs/apps-v2  
-        var version = "1.0.3.2";
-        console.log("Version is " + version);
+        var version = "1.0.4.0";
+        console.log("RecMan v" + version + " is loaded.");
         var reclamationsCustomFieldId;
-        var Authorization = 'Bearer ';
+        var tokenRM = " ";
         var client = ZAFClient.init();
         client.invoke('resize', {
             width: '100%',
-            height: '200px'
+            height: '50px'
         });
 
         // получаем список рекламаций из поля reclamations и заполняем список data-rmList при загрузке приложения
         client.on('app.registered', function (data) {
-            client.metadata().then(function (metadata) {
+            return client.metadata().then(function (metadata) {
                 reclamationsCustomFieldId = metadata.settings.reclamationsFieldId;
+                tokenRM = metadata.settings.tokenRm;
                 return reclamationsCustomFieldId;
-            }).then(reclamationsCustomFieldId => {
-                client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(
+            }).then(function (reclamationsCustomFieldId) {
+                return client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(
                     function (data) {
+                        var k = 0;
                         var reclamations = data['ticket.customField:custom_field_' +
                             reclamationsCustomFieldId];
+                        var reclamationArray = new Array();
+                        if (reclamations !== null && reclamations !== "") {
+                            reclamationArray = reclamations.slice(0,
+                                    -1)
+                                .split(',');
+                            k = reclamationArray.length;
+                        }
                         if (reclamations !== '' && reclamations !== null && reclamations !==
                             undefined) {
-                            addReclamationsToList(reclamations);
+                            addReclamationsToList(reclamations, k);
                         }
                     });
             });
         });
 
+        // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
+        client.on('ticket.save', function (data) {
+            return client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId)
+                .then(function (data) {
+                    var reclamations = data['ticket.customField:custom_field_' + reclamationsCustomFieldId];
+                    return client.get('ticket.status').then(function (data) {
+                        var status = data['ticket.status'];
+                        if (status == 'pending' || status == 'solved') {
+                            return transferReclamationsToLinkedTicket(reclamations);
+                        }
+                    });
+                });
+        });
+
         // при изменении комментария получаем из комментария ссылку на рекламацию и добавляем ее в список data-rmList
         client.on('comment.text.changed', function (data) {
             getReclamationLinkFromComment(reclamationsCustomFieldId);
-        });
-
-        // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
-        client.on('ticket.submit.done', function () {
-            client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(function (data) {
-                var reclamations = data['ticket.customField:custom_field_' + reclamationsCustomFieldId];
-                client.get('ticket.status').then(function (data) {
-                    var status = data['ticket.status'];
-                    if (status == 'pending' || status == 'solved') {
-                        transferReclamationsToLinkedTicket(reclamations);
-                    }
-                });
-            });
         });
 
         // добавляем ссылку на рекламацию в форму RecMan
@@ -115,11 +125,11 @@
         }
 
         // добавляем ссылку на рекламацию в форму RecMan (разметка)
-        function addLinkField(reclamationNumber, k) {
+        function addLinkField(reclamationNumber, k, status = "unknown") {
             var list = document.querySelector('ul[data-rmList]');
             var li = document.createElement('li');
             var a = document.createElement('a');
-            //var span = document.createElement('span');
+            var span = document.createElement('span');
             var closeTemplate = document.getElementById('close');
             var closeButton = closeTemplate.cloneNode(true);
             closeButton.classList.remove('hidden');
@@ -131,25 +141,30 @@
             //     e.preventDefault();
             //     ShowReclamation(reclamationNumber.trim())
             // };
-            //span.innerHTML = status;
-            // if (status == 'Verified') {
-            //     span.classList.add('rmStatus-good');
-            // } else span.classList.add('rmStatus-bad');   
+            var url = "https://recmanapi.abbyy.com/api/reclamation/" + reclamationNumber;
+            var auth = "Bearer " + tokenRM;
+            var fetchSelf = makeFetchBody(url, 'GET', '', auth);
+            client.request(fetchSelf).then(function (response) {
+                span.innerHTML = response.stateName;
+                if (response.stateName == "Verified") {
+                    span.classList.add('rmStatus-good');
+                } else span.classList.add('rmStatus-bad');
+            });
             list.appendChild(li);
             li.appendChild(a);
             li.appendChild(closeButton);
-            //li.appendChild(span);
+            li.appendChild(span);
             client.invoke('resize', {
                 width: '100%',
-                height: 60 + k * 20
+                height: 50 + k * 20
             });
         }
         // добавляем ссылку на рекламацию в форму RecMan (логика)
-        function addReclamationsToList(reclamationsString) {
+        function addReclamationsToList(reclamationsString, k) {
             var reclamationArray = reclamationsString.split(',');
             reclamationArray.forEach(function (item) {
                 if (item !== '') {
-                    addLinkField(item);
+                    addLinkField(item, k);
                 }
             });
         }
@@ -198,7 +213,7 @@
                 var k = reclamationArray.length;
                 client.invoke('resize', {
                     width: '100%',
-                    height: 60 + (k - 1) * 20
+                    height: 50 + (k - 1) * 20
                 });
                 if (newReclamations == '') {
                     removeReclamationTag('reclamation');
@@ -208,8 +223,13 @@
 
         // открыть справку (кнопка)
         function openAboutPage() {
-            window.open('https://wiki.abbyy.com/display/SP/Integration+with+Reclamation+Manager');
-
+            // window.open('https://wiki.abbyy.com/display/SP/Integration+with+Reclamation+Manager');
+            var url = "https://recmanapi.abbyy.com/api/reclamation/875000"
+            var auth = 'Bearer 3d2fdb5b0b51f5c220ca776551b2b44c11caea9a7633dee13a34fdb700dd0c41'
+            var fetchSelf = makeFetchBody(url, 'GET', '', auth);
+            client.request(fetchSelf).then(function (response) {
+                console.log(response.stateName)
+            });
         }
 
         function ShowReclamation(reclamationNumber) {
@@ -230,8 +250,6 @@
             });
         }
 
-
-
         // добавить номер рекламации в теги
         function addReclamationTag(value) {
             client.invoke('ticket.tags.add', 'rm' + value);
@@ -251,109 +269,151 @@
             return link.href.substring(link.href.length - 6, link.href.length);
         }
 
-        // прокинуть список рекламаций и тэги в Parent Ticket ( на 1 линию), а также оставить сообщение 1 линии об обновлении запроса на 2 линии
-        function transferReclamationsToLinkedTicket(reclamationsFromField) {
-            client.metadata().then(function (metadata) {
-                var settings = metadata.settings;
-                return settings;
-            }).then(settings => {
-                client.get('ticket.customField:custom_field_' + settings.linkedDataFieldId).then(function (data) {
-                    var linkedData = data['ticket.customField:custom_field_' + settings.linkedDataFieldId];
-                    console.log(linkedData)
-                    if (linkedData.indexOf('child') < 0) return;
-                    var linkedTicketId = linkedData.substring(linkedData.indexOf(':') + 1, linkedData.length);
-                    return linkedTicketId;
-                }).then(linkedTicketId => {
-                    if (linkedTicketId !== undefined) {
-                        Authorization += settings.token;
-                        var url = settings.serverUrl + 'api/v2/tickets/' + linkedTicketId + '.json';
-                        var tagsUrl = settings.serverUrl + 'api/v2/tickets/' + linkedTicketId +
-                            '/tags.json';
-                        var fetchSelf = makeFetchBody(url, 'GET', '', Authorization);
-                        client.request(fetchSelf).then(function (data) {
-                            var linkedTicket = (data['ticket']);
-                            //все действия выполняем только если parent ticket не closed
-                            if (linkedTicket.status !== 'closed') {
-                                var parentReclamations = '';
-                                if (linkedTicket.custom_fields.find(item => item.id == settings
-                                        .reclamationsFieldId).value !== null) {
-                                    parentReclamations = linkedTicket.custom_fields.find(item =>
-                                        item.id == settings.reclamationsFieldId).value;
-                                }
-
-                                var reclamationArray = new Array();
-                                if (reclamationsFromField !== null) {
-                                    reclamationArray = reclamationsFromField.split(',');
-                                }
-                                //взводим флаг на изменения в списке рекламаций
-                                var changed = false;
-                                reclamationArray.forEach(function (reclamation) {
-                                    //если добавленной рекламации нет в списке рекламаций parent ticket - добавляем рекламацию в список, включаем флаг
-                                    if (reclamation !== '' && (parentReclamations.indexOf(
-                                            reclamation) < 0)) {
-                                        parentReclamations += reclamation + ',';
-                                        changed = true;
-                                    }
-                                });
-                                //если изменения были и статус parent ticket - не 'solved', то отправляем в parent ticket рекламации, теги, сообщение, статус
-                                if (changed && linkedTicket.status !== 'solved') {
-                                    var query =
-                                        '{"ticket":{"status": "open", "comment": {"public": "false", "body": "Child ticket has been updated."} , "custom_fields":{"id":"' +
-                                        settings.reclamationsFieldId + '","value":"' +
-                                        parentReclamations + '"}}}'
-                                    var fetchSelf = makeFetchBody(url, 'PUT', query,
-                                        Authorization);
-                                    client.request(fetchSelf).then(function (data) {
-                                        var query = '{"tags": [" "'
-                                        reclamationArray.forEach(function (reclamation) {
-                                            if (reclamation !== '') {
-                                                query += ',"rm' + reclamation +
-                                                    '"';
-                                            }
-                                        });
-                                        query += ']}';
-                                        var fetchSelf = makeFetchBody(tagsUrl, 'PUT',
-                                            query, Authorization);
-                                        client.request(fetchSelf);
-                                    });
-                                } else if (!changed && linkedTicket.status !== 'solved') {
-                                    var query =
-                                        '{"ticket":{"status": "open", "comment": {"public": "false", "body": "Child ticket has been updated."}}}'
-                                    var fetchSelf = makeFetchBody(url, 'PUT', query,
-                                        Authorization);
-                                    client.request(fetchSelf);
-                                } else if (changed && linkedTicket.status == 'solved') {
-                                    var query = '{"ticket":{"custom_fields":{"id":"' + settings
-                                        .reclamationsFieldId + '","value":"' +
-                                        parentReclamations + '"}}}'
-                                    var fetchSelf = makeFetchBody(url, 'PUT', query,
-                                        Authorization);
-                                    client.request(fetchSelf).then(function (data) {
-                                        var query = '{"tags": [" "'
-                                        reclamationArray.forEach(function (reclamation) {
-                                            if (reclamation !== '') {
-                                                query += ',"rm' + reclamation +
-                                                    '"';
-                                            }
-                                        });
-                                        query += ']}';
-                                        var fetchSelf = makeFetchBody(tagsUrl, 'PUT',
-                                            query, Authorization);
-                                        client.request(fetchSelf);
-                                    });
-                                }
-                            }
-                        });
-                    }
-                });
+        function getValueFromField(fieldId) {
+            return client.get('ticket.customField:custom_field_' + fieldId).then(function (data) {
+                var value = data['ticket.customField:custom_field_' + fieldId];
+                return value;
             });
         }
 
+        // прокинуть список рекламаций и тэги в Parent Ticket ( на 1 линию), а также оставить сообщение 1 линии об обновлении запроса на 2 линии
+        function transferReclamationsToLinkedTicket(reclamationsFromField) {
+            var parentStatus = "";
+            var isParent = false;
+            return client.metadata().then(function (metadata) {
+                var settings = metadata.settings;
+                return settings;
+            }).then(function (settings) {
+                return client.get('ticket.customField:custom_field_' + settings.linkedDataFieldId)
+                    .then(function (data) {
+                        var linkedData = data['ticket.customField:custom_field_' + settings.linkedDataFieldId];
+                        if (linkedData !== null) {
+                            isParent = (linkedData.indexOf('child') < 0);
+                            if (isParent) return Promise.resolve();
+                            else {
+                                var linkedTicketId = linkedData.substring(linkedData.indexOf(':') + 1,
+                                    linkedData.length);
+                                return linkedTicketId;
+                            }
+                        }
+                    }).then(function (linkedTicketId) {
+                        console.log(isParent, linkedTicketId)
+                        //  if (isChild) {
+                        if (!isParent && linkedTicketId !== undefined) {
+                            return getLinkedTicketData(linkedTicketId, settings).then(function (
+                                linkedTicket) {
+                                parentStatus = linkedTicket.status;
+                                if (linkedTicket.status !== 'closed') {
+                                    var parentReclamations = '';
+                                    if (linkedTicket.custom_fields.find(item => item.id == settings
+                                            .reclamationsFieldId).value !== null) {
+                                        parentReclamations = linkedTicket.custom_fields.find(item =>
+                                            item.id == settings.reclamationsFieldId).value;
+                                    }
+                                    var parentReclamationArray = new Array();
+                                    if (reclamationsFromField !== null) {
+                                        parentReclamationArray = parentReclamations.slice(0, -1).split(
+                                            ',');
+
+                                    }
+                                    return parentReclamationArray;
+                                }
+                            }).then(function (parentReclamationArray) {
+                                return getValueFromField(settings.reclamationsFieldId).then(
+                                    function (reclamationsString) {
+                                        var childReclamationArray = new Array();
+                                        if (reclamationsString !== null) {
+                                            childReclamationArray = reclamationsString.slice(0,
+                                                    -1)
+                                                .split(',');
+                                        }
+                                        //сливаем два массива в Set
+                                        resultSet = [...new Set([...parentReclamationArray, ...
+                                            childReclamationArray
+                                        ])];
+                                        return resultSet;
+                                    }).then(function (resultSet) {
+                                    var url = settings.serverUrl + 'api/v2/tickets/' +
+                                        linkedTicketId +
+                                        '.json';
+                                    var tagsUrl = settings.serverUrl + 'api/v2/tickets/' +
+                                        linkedTicketId +
+                                        '/tags.json';
+
+                                    var fetchSelf = makeFetchBody(url, 'PUT',
+                                        createTicketQuery(
+                                            resultSet, settings.reclamationsFieldId,
+                                            parentStatus),
+                                        settings.tokenZen);
+                                    return client.request(fetchSelf).then(function (data) {
+                                        var fetchSelf = makeFetchBody(tagsUrl,
+                                            'PUT',
+                                            createTagsQuery(
+                                                resultSet),
+                                            settings.tokenZen);
+                                        return client.request(fetchSelf)
+                                    });
+                                });
+                            });
+                        }
+                    });
+            });
+        }
+
+        function createTicketQuery(resultSet, fieldId, status) {
+            var query = '';
+
+            resultSet.forEach(function (reclamation) {
+                if (reclamation !== '') {
+                    query += reclamation + ',';
+                }
+            });
+            if (status !== 'solved') {
+                query =
+                    '{"ticket":{"status": "open", "comment": {"public": "false", "body": "Child ticket has been updated. This ticket previous status was: ' +
+                    status.toUpperCase() + '"} , "custom_fields":{"id":"' + fieldId + '","value":"' + query + '"}}}'
+            } else {
+                query =
+                    '{"ticket":{"custom_fields":{"id":"' + fieldId + '","value":"' + query + ',' + '"}}}'
+            }
+            return query;
+        }
+
+        function createTagsQuery(resultSet) {
+            var query = '{"tags": ["reclamation"'
+            resultSet.forEach(function (reclamation) {
+                if (reclamation !== '') {
+                    query += ',"rm' + reclamation +
+                        '"';
+                }
+            });
+            query += ']}';
+            return query;
+        }
+
+        function getLinkedTicketData(linkedTicketId, settings) {
+            if (linkedTicketId !== undefined) {
+                var url = settings.serverUrl + 'api/v2/tickets/' + linkedTicketId + '.json';
+                var fetchSelf = makeFetchBody(url, 'GET', '', settings.tokenZen);
+                console.log(fetchSelf)
+                return client.request(fetchSelf).then(function (data) {
+                    var linkedTicket = (data['ticket']);
+                    return linkedTicket
+                });
+            }
+            return Promise.resolve();
+        }
+
         // собрать тело http-запроса
-        function makeFetchBody(url, type, query, auth) {
+        function makeFetchBody(url, type, query, token) {
             return fetchSelf = {
                 url: url,
-                headers: auth,
+                headers: {
+                    "Authorization": token
+                },
+                // headers: {
+                //     "Authorization": "Bearer " + token
+                // },
                 contentType: 'application/json',
                 secureProtocol: 'TLSv1_2_method',
                 type: type,

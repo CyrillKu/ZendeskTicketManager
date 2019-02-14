@@ -1,16 +1,35 @@
-.menu-bottom{
+.menu-bottom {
     position: absolute;
     bottom: 0;
 }
-.close-button{
-    width: 10%!important; 
-    position: absolute!important;
+
+.close-button {
+    width: 10% !important;
+    position: absolute !important;
 }
+
 .rmStatus-good {
-    padding-left: 25%!important;
-    color: #019d5a;
+    padding: 2px 3px 3px 3px !important;
+    border-top-right-radius: 4px !important;
+    font-size: 12 !important;
+    border-bottom-right-radius: 4px !important;
+    background: #038153;
+    color: white;
+    top: -1 !important;
+    border-top-left-radius: 4px !important;
+    border-bottom-left-radius: 4px !important;
+    margin-left: 15% !important;
 }
+
 .rmStatus-bad {
-    padding-left: 25%!important;
-    color: #d8432e;
+    font-size: 12 !important;
+    background: #E82A2A;
+    color: white;
+    top: -1 !important;
+    border-top-left-radius: 4px !important;
+    border-bottom-left-radius: 4px !important;
+    margin-left: 15% !important;
+    padding: 2px 3px 3px 3px !important;
+    border-top-right-radius: 4px !important;
+    border-bottom-right-radius: 4px !important;
 }
