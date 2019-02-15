@@ -28,7 +28,7 @@
     <script>
         // Initialise the Zendesk JavaScript API client
         // https://developer.zendesk.com/apps/docs/apps-v2  
-        var version = "1.0.5.1";
+        var version = "1.0.5.2";
         console.log("RecMan v" + version + " is loaded.");
         var reclamationsCustomFieldId;
         var tokenRM = " ";
@@ -175,7 +175,7 @@
                 var tags = data['ticket.tags'];
                 return tags.indexOf('abbyy_3a');
             }).then(is_3a => {
-                console.log(is_3a)
+                //console.log(is_3a)
                 if (is_3a >= 0) {
                     client.get('ticket.id').then(function (data) {
                         var requestNumber = data['ticket.id'];
@@ -202,7 +202,7 @@
                 var reclamationNumber = element.previousSibling.text.substring(element.previousSibling.text
                     .length -
                     6, element.previousSibling.text.length);
-                console.log(reclamationNumber);
+                //console.log(reclamationNumber);
                 var newReclamations = oldReclamations.replace(reclamationNumber + ',', '');
                 removeReclamationTag(reclamationNumber);
                 return newReclamations;
@@ -317,7 +317,9 @@
                                     }
                                     return parentReclamationArray;
                                 }
+  
                             }).then(function (parentReclamationArray) {
+                                if (parentStatus !== 'closed'){
                                 return getValueFromField(settings.reclamationsFieldId).then(
                                     function (reclamationsString) {
                                         var childReclamationArray = new Array();
@@ -353,6 +355,7 @@
                                         return client.request(fetchSelf)
                                     });
                                 });
+                                } // if (parentStatus !== 'closed')                               
                             });
                         }
                     });
@@ -394,7 +397,7 @@
             if (linkedTicketId !== undefined) {
                 var url = settings.serverUrl + 'api/v2/tickets/' + linkedTicketId + '.json';
                 var fetchSelf = makeFetchBody(url, 'GET', '', settings.tokenZen);
-                console.log(fetchSelf)
+                //console.log(fetchSelf)
                 return client.request(fetchSelf).then(function (data) {
                     var linkedTicket = (data['ticket']);
                     return linkedTicket
