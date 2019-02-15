@@ -28,7 +28,7 @@
     <script>
         // Initialise the Zendesk JavaScript API client
         // https://developer.zendesk.com/apps/docs/apps-v2  
-        var version = "1.0.5.0";
+        var version = "1.0.5.1";
         console.log("RecMan v" + version + " is loaded.");
         var reclamationsCustomFieldId;
         var tokenRM = " ";
@@ -223,13 +223,13 @@
 
         // открыть справку (кнопка)
         function openAboutPage() {
-            // window.open('https://wiki.abbyy.com/display/SP/Integration+with+Reclamation+Manager');
-            var url = "https://recmanapi.abbyy.com/api/reclamation/875000"
-            var auth = 'Bearer 3d2fdb5b0b51f5c220ca776551b2b44c11caea9a7633dee13a34fdb700dd0c41'
-            var fetchSelf = makeFetchBody(url, 'GET', '', auth);
-            client.request(fetchSelf).then(function (response) {
-                console.log(response.stateName)
-            });
+             window.open('https://wiki.abbyy.com/display/SP/Integration+with+Reclamation+Manager');
+            // var url = "https://recmanapi.abbyy.com/api/reclamation/875000"
+            // var auth = 'Bearer 3d2fdb5b0b51f5c220ca776551b2b44c11caea9a7633dee13a34fdb700dd0c41'
+            // var fetchSelf = makeFetchBody(url, 'GET', '', auth);
+            // client.request(fetchSelf).then(function (response) {
+            //     console.log(response.stateName)
+            // });
         }
 
         function ShowReclamation(reclamationNumber) {
@@ -297,8 +297,7 @@
                             }
                         }
                     }).then(function (linkedTicketId) {
-                        console.log(isParent, linkedTicketId)
-                        //  if (isChild) {
+                        //console.log(isParent, linkedTicketId)
                         if (!isParent && linkedTicketId !== undefined) {
                             return getLinkedTicketData(linkedTicketId, settings).then(function (
                                 linkedTicket) {
