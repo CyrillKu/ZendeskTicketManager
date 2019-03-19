@@ -1,0 +1,54 @@
+<html lang="en" style="overflow-y:auto">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="https://assets.zendesk.com/apps/sdk-assets/css/2/zendesk_garden.css" type="text/css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+        crossorigin="anonymous">
+    <link rel="stylesheet" href="main.css">
+</head>
+
+<body>
+    <div class="modal-header">
+        <h3 class="modal-title">Send Message to 1st Line</h5>
+
+
+    </div>
+    <div class="modal-body">
+        <div class="mb-3">
+            <input type="text" class="form-control" placeholder="Enter you message here" aria-label="Recipient's username"
+                aria-describedby="button-addon2">
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeModal()">Close</button>
+        <button type="button" class="btn btn-primary" onclick="sendMessage()">Send Message</button>
+    </div>
+
+    <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
+    <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
+    <script>
+        let modalClient = ZAFClient.init();
+        let parentClient = null;
+
+        modalClient.on('sending_parent_client_guid', (parentClientGuid) => {
+            console.debug('Receiving parent guid...', parentClientGuid);
+            parentClient = modalClient.instance(parentClientGuid);
+        });
+
+        function closeModal() {
+            client.invoke('destroy');
+        }
+
+        function sendMessage() {
+
+
+        }
+    </script>
+
+
+</body>
+
+</html>

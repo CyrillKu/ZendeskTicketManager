@@ -443,48 +443,43 @@
                                 return parentReclamationArray;
                             }
                         }).then(function (parentReclamationArray) {
-                            if (parentStatus !== 'closed'){
-                                return getValueFromField(settings.reclamationsFieldId).then(
-                                    function (reclamationsString) {
-                                        var childReclamationArray = new Array();     
-                                                                    
-                                        if (reclamationsString !== null) {
-                                            childReclamationArray = reclamationsString.slice(0,
-                                                    -1)
-                                                .split(',');
-                                        }
+                            return getValueFromField(settings.reclamationsFieldId).then(
+                                function (reclamationsString) {
+                                    var childReclamationArray = new Array();
+                                    if (reclamationsString !== null) {
+                                        childReclamationArray = reclamationsString.slice(0,
+                                                -1)
+                                            .split(',');
+                                    }
+                                    //сливаем два массива в Set
+                                    resultSet = [...new Set([...parentReclamationArray, ...
+                                        childReclamationArray
+                                    ])];                                    
+                                    return resultSet;                                    
+                                }).then(function (resultSet) {
+                                var url = settings.serverUrl + 'api/v2/tickets/' +
+                                    linkedTicketId +
+                                    '.json';
+                                var tagsUrl = settings.serverUrl + 'api/v2/tickets/' +
+                                    linkedTicketId +
+                                    '/tags.json';
 
-                                        //сливаем два массива в Set
-                                        resultSet = [...new Set([...parentReclamationArray, ...
-                                            childReclamationArray
-                                        ])];     
-                                        return resultSet;                                    
-                                    }).then(function (resultSet) {
+                                var fetchSelf = makeFetchBody(url, 'PUT',
+                                    createTicketQuery(
+                                        resultSet, settings.reclamationsFieldId,
+                                        parentStatus), settings.tokenZen);
+                                //console.log(fetchSelf)
+                                return client.request(fetchSelf).then(function (data) {
+                                    var fetchSelf = makeFetchBody(tagsUrl,
+                                        'PUT',
+                                        createTagsQuery(
+                                            resultSet),
+                                        settings.tokenZen);
+                                    //console.log(fetchSelf)                                  
 
-                                    var url = settings.serverUrl + 'api/v2/tickets/' +
-                                        linkedTicketId +
-                                        '.json';
-                                    var tagsUrl = settings.serverUrl + 'api/v2/tickets/' +
-                                        linkedTicketId +
-                                        '/tags.json';
-
-                                    var fetchSelf = makeFetchBody(url, 'PUT',
-                                        createTicketQuery(
-                                            resultSet, settings.reclamationsFieldId,
-                                            parentStatus), settings.tokenZen);
-                                    //console.log(fetchSelf)
-                                    return client.request(fetchSelf).then(function (data) {
-                                        var fetchSelf = makeFetchBody(tagsUrl,
-                                            'PUT',
-                                            createTagsQuery(
-                                                resultSet),
-                                            settings.tokenZen);
-                                        //console.log(fetchSelf)                                  
-
-                                        return client.request(fetchSelf)
-                                    });
+                                    return client.request(fetchSelf)
                                 });
-                            }
+                            });
                         });
                     }
 
