@@ -70,3 +70,24 @@ body {
     min-height: initial;
 
 }
+
+.sla-warning {
+    font-size: 12 !important;
+    background-color: #F5CA00;
+    color: #703B15;
+    top: -1 !important;
+    border-top-left-radius: 4px !important;
+    border-bottom-left-radius: 4px !important;
+    margin-left: 5% !important;
+    margin-bottom: 10px;
+    padding: 2px 3px 3px 3px !important;
+    border-top-right-radius: 4px !important;
+    border-bottom-right-radius: 4px !important;
+}
+
+.delimeter {
+    margin-bottom: 10px;
+    border-bottom: dotted;
+    border-bottom: 1px dotted #C2C8CC;
+    padding-bottom: 5px;
+}

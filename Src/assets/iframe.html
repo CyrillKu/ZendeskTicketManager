@@ -4,16 +4,18 @@
     <meta charset="utf-8">
     <!-- http://garden.zendesk.com -->
     <link rel="stylesheet" href="https://assets.zendesk.com/apps/sdk-assets/css/2/zendesk_garden.css" type="text/css">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
-        crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="stylesheet" href="main.css">
 
 </head>
 
 <body>
+    <div data-warning class="delimeter hidden"><span>Warning:</span><span data-sla class="sla-warning"></span></div>
     <ul data-rmList>
     </ul>
-    <button id="close" type="button" class="close close-button hidden" aria-label="Close" onclick="removeElementFromList(this)">
+    <button id="close" type="button" class="close close-button hidden" aria-label="Close"
+        onclick="removeElementFromList(this)">
         <span aria-hidden="true">&times;</span>
     </button>
     <!--<h4 class="feature-title">TFS</h4> //commented by -->
@@ -67,8 +69,10 @@
                         }
                     })
                 });
+            }).then(function (data) {
+                return showWarnings();
             });
-            resizeWindow();
+            resizeWindow()
         });
         // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
         client.on('ticket.save', function (data) {
@@ -78,7 +82,13 @@
                     return client.get('ticket.status').then(function (data) {
                         var status = data['ticket.status'];
                         if (status == 'pending' || status == 'solved') {
-                            return transferReclamationsToLinkedTicket(reclamations);
+                            return client.get('ticket.comment').then(function (data) {
+                                commentText = data["ticket.comment"].text;
+                                if (commentText.indexOf("#forSL") < 0 && commentText !=
+                                    "<p></p>") {
+                                    return transferReclamationsToLinkedTicket(reclamations);
+                                } else return Promise.resolve();
+                            });
                         }
                     });
                 });
@@ -90,32 +100,47 @@
             });
         });
 
+        function showWarnings() {
+            return client.get('ticket.tags').then(function (data) {
+                var tags = data['ticket.tags'];
+                if (tags.indexOf("service_level_gold") > -1) {
+                    var sla = document.querySelector('span[data-sla]');
+                    sla.innerHTML = 'service_level_gold';
+                    var warning = document.querySelector('div[data-warning]');
+                    warning.classList.remove('hidden');
+                }
+            });
+
+        }
+
         function resizeWindow() {
             var k = 0;
             return client.get('ticket.customField:custom_field_' + reclamationsCustomFieldId).then(function (data) {
-                var reclamations = data['ticket.customField:custom_field_' + reclamationsCustomFieldId];
-                if (reclamations) {
-                    var reclamationArray = reclamations.slice(0, -1).split(',');
-                    k = reclamationArray.length;
-                }
-                return k;
-            }).then(function (k) {
-                return client.get('ticket.customField:custom_field_' + featuresCustomFieldId).then(function (
-                    data) {
-                    var features = data['ticket.customField:custom_field_' +
-                        featuresCustomFieldId];
-                    if (features) {
-                        var featureArray = features.slice(0, -1).split(',');
-                        k += featureArray.length;
+                    var reclamations = data['ticket.customField:custom_field_' + reclamationsCustomFieldId];
+                    if (reclamations) {
+                        var reclamationArray = reclamations.slice(0, -1).split(',');
+                        k = reclamationArray.length;
                     }
                     return k;
                 })
-            }).then(function (k) {
-                return client.invoke('resize', {
-                    width: '100%',
-                    height: 105 + k * 20
-                })
-            });
+                // .then(function (k) {
+                //     return client.get('ticket.customField:custom_field_' + featuresCustomFieldId).then(function (
+                //         data) {
+                //         var features = data['ticket.customField:custom_field_' +
+                //             featuresCustomFieldId];
+                //         if (features) {
+                //             var featureArray = features.slice(0, -1).split(',');
+                //             k += featureArray.length;
+                //         }
+                //         return k;
+                //     })
+                // })
+                .then(function (k) {
+                    return client.invoke('resize', {
+                        width: '100%',
+                        height: 105 + k * 20
+                    })
+                });
 
 
         }
@@ -131,7 +156,7 @@
                     var doc = parser.parseFromString(commentText, "text/html");
                     var links = doc.links;
                     //фильтруем все извлеченные из комментария ссылки по ключам 'reclamation' и '/rm/'
-                    for (var i = 0; i < links.length; i++) {                        
+                    for (var i = 0; i < links.length; i++) {
                         if ((links[i].href.indexOf('reclamation') >= 0 || links[i].href.indexOf(
                                     '/rm/') >=
                                 0) && ((links[i].href.indexOf('List')) < 0)) {
@@ -211,7 +236,7 @@
                 var auth = "Bearer " + tokenZen;
 
                 var fetchSelf = makeFetchBody(url, 'GET', '', auth);
-               // console.log(fetchSelf)
+                // console.log(fetchSelf)
                 client.request(fetchSelf).then(function (response) {
                     span.innerHTML = response.stateName;
                     if (response.stateName == "Verified")
@@ -229,7 +254,7 @@
                 li.appendChild(span);
             }
             if (featureNumber !== '') {
-                a.innerHTML = "TFS:" +featureNumber.trim();
+                a.innerHTML = "TFS:" + featureNumber.trim();
                 a.href = 'https://tfs/HQ/DataCapture/Desktop/_workitems/edit/' + featureNumber.trim();
                 a.target = '_blank';
                 ftList.appendChild(li);
@@ -298,22 +323,22 @@
                         removeReclamationTag('reclamation');
                     }
                 });
-            // } else {
-            //     return client.get('ticket.customField:custom_field_' + featuresCustomFieldId).then(function (data) {
-            //         var oldFeatures = data['ticket.customField:custom_field_' + featuresCustomFieldId];
-            //         var featureNumber = getFeatureNumberFromURL(element.previousSibling);
-            //         var newFeatures = oldFeatures.replace(featureNumber + ',', '');
-            //         removeFeatureTag(featureNumber);
-            //         return newFeatures;
-            //     }).then(newFeatures => {
-            //         client.set('ticket.customField:custom_field_' + featuresCustomFieldId,
-            //             newFeatures);
-            //         element.parentNode.remove();
-            //         resizeWindow();
-            //         if (newFeatures == '') {
-            //             removeFeatureTag('feature');
-            //         }
-            //     });
+                // } else {
+                //     return client.get('ticket.customField:custom_field_' + featuresCustomFieldId).then(function (data) {
+                //         var oldFeatures = data['ticket.customField:custom_field_' + featuresCustomFieldId];
+                //         var featureNumber = getFeatureNumberFromURL(element.previousSibling);
+                //         var newFeatures = oldFeatures.replace(featureNumber + ',', '');
+                //         removeFeatureTag(featureNumber);
+                //         return newFeatures;
+                //     }).then(newFeatures => {
+                //         client.set('ticket.customField:custom_field_' + featuresCustomFieldId,
+                //             newFeatures);
+                //         element.parentNode.remove();
+                //         resizeWindow();
+                //         if (newFeatures == '') {
+                //             removeFeatureTag('feature');
+                //         }
+                //     });
             }
         }
         // открыть справку (кнопка)
@@ -413,7 +438,7 @@
             return client.get('ticket.customField:custom_field_' + settings.linkedDataFieldId)
                 .then(function (data) {
                     var linkedData = data['ticket.customField:custom_field_' + settings.linkedDataFieldId];
-                    if (linkedData && linkedData !== undefined){
+                    if (linkedData && linkedData !== undefined) {
                         isParent = (linkedData.indexOf('child') < 0);
                         if (isParent) return Promise.resolve();
                         else {
@@ -425,7 +450,7 @@
                 }).then(function (linkedTicketId) {
                     if (!isParent && isParent !== null) {
                         return getLinkedTicketData(linkedTicketId, settings).then(function (
-                            linkedTicket) {                                
+                            linkedTicket) {
                             parentStatus = linkedTicket.status;
                             if (linkedTicket.status !== 'closed') {
                                 var parentReclamations = '';
@@ -443,11 +468,11 @@
                                 return parentReclamationArray;
                             }
                         }).then(function (parentReclamationArray) {
-                            if (parentStatus !== 'closed'){
+                            if (parentStatus !== 'closed') {
                                 return getValueFromField(settings.reclamationsFieldId).then(
                                     function (reclamationsString) {
-                                        var childReclamationArray = new Array();     
-                                                                    
+                                        var childReclamationArray = new Array();
+
                                         if (reclamationsString !== null) {
                                             childReclamationArray = reclamationsString.slice(0,
                                                     -1)
@@ -457,8 +482,8 @@
                                         //сливаем два массива в Set
                                         resultSet = [...new Set([...parentReclamationArray, ...
                                             childReclamationArray
-                                        ])];     
-                                        return resultSet;                                    
+                                        ])];
+                                        return resultSet;
                                     }).then(function (resultSet) {
 
                                     var url = settings.serverUrl + 'api/v2/tickets/' +
