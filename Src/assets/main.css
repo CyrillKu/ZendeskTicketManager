@@ -6,6 +6,7 @@ body {
 .menu-bottom {
     position: absolute;
     bottom: 0;
+    right: 0;
 }
 
 .close-button {
@@ -53,7 +54,7 @@ body {
 }
 
 .feature-title {
-    font-size: 15px;
+    font-size: 14px;
     line-height: 30px;
     font-weight: 600;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
@@ -76,13 +77,11 @@ body {
     background-color: #F5CA00;
     color: #703B15;
     top: -1 !important;
-    border-top-left-radius: 4px !important;
-    border-bottom-left-radius: 4px !important;
+    border-radius: 4px !important;
     margin-left: 5% !important;
     margin-bottom: 10px;
     padding: 2px 3px 3px 3px !important;
-    border-top-right-radius: 4px !important;
-    border-bottom-right-radius: 4px !important;
+
 }
 
 .delimeter {
@@ -90,4 +89,8 @@ body {
     border-bottom: dotted;
     border-bottom: 1px dotted #C2C8CC;
     padding-bottom: 5px;
+}
+
+td {
+    width: 50%;
 }
