@@ -1,8 +1,3 @@
-html,
-body {
-    overflow-y: hidden !important;
-}
-
 .menu-bottom {
     position: absolute;
     bottom: 0;
@@ -10,47 +5,60 @@ body {
 }
 
 .close-button {
-    width: 10% !important;
+    width: 25px !important;
     position: absolute !important;
 }
 
-.rmStatus-good {
+.rmStatus {
     padding: 2px 3px 3px 3px !important;
-    border-top-right-radius: 4px !important;
+    border-radius: 4px !important;
     font-size: 12 !important;
-    border-bottom-right-radius: 4px !important;
+    color: white;
+    top: -1 !important;
+    margin-left: 15% !important;
+}
+
+.good {
     background: #038153;
-    color: white;
-    top: -1 !important;
-    border-top-left-radius: 4px !important;
-    border-bottom-left-radius: 4px !important;
-    margin-left: 15% !important;
 }
 
-.rmStatus-bad {
-    font-size: 12 !important;
+.bad {
     background: #E82A2A;
-    color: white;
-    top: -1 !important;
-    border-top-left-radius: 4px !important;
-    border-bottom-left-radius: 4px !important;
-    margin-left: 15% !important;
-    padding: 2px 3px 3px 3px !important;
-    border-top-right-radius: 4px !important;
-    border-bottom-right-radius: 4px !important;
 }
 
-.rmStatus-fixed {
-    font-size: 12 !important;
-    background-color: #F5CA00;
-    color: #703B15;
-    top: -1 !important;
-    border-top-left-radius: 4px !important;
-    border-bottom-left-radius: 4px !important;
-    margin-left: 15% !important;
-    padding: 2px 3px 3px 3px !important;
-    border-top-right-radius: 4px !important;
-    border-bottom-right-radius: 4px !important;
+.fixed {
+    background: #FFB648;
+    color: #703B15 !important;
+}
+
+.ticket {
+    margin: 0px !important;
+    font-weight: 600
+}
+
+.pending {
+    background: #3091EC;
+}
+
+.hold {
+    background: #2F3941;
+}
+
+.solved {
+    background: #87929D;
+}
+
+.new {
+    background: #FFB648;
+    color: #703B15 !important;
+}
+
+.open {
+    background: #E82A2A;
+}
+
+.closed {
+    background: #87929D;
 }
 
 .feature-title {
@@ -89,8 +97,4 @@ body {
     border-bottom: dotted;
     border-bottom: 1px dotted #C2C8CC;
     padding-bottom: 5px;
-}
-
-td {
-    width: 50%;
 }

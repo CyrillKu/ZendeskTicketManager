@@ -14,71 +14,62 @@
 
 <body>
     <div data-warning class="delimeter hidden"><span class="feature-title">Warning:</span></div>
-    <div data-warning class="delimeter"><span class="feature-title">Reclamations</span>
+    <div class="delimeter"><span class="feature-title">Reclamations</span>
         <span class="btn" onclick="createNewReclamation()" data-toggle="tooltip" data-placement="top"
             title="Create New Reclamation"> <i class="fas fa-plus " style="color: green"></i>
         </span>
+        <ul data-rmList style="margin-bottom: 0px">
+        </ul>
     </div>
-    <ul data-rmList>
-    </ul>
     <button data-close type="button" class="close close-button hidden" aria-label="Close"
         onclick="removeElementFromList(this)">
         <span aria-hidden="true" style="color: red">&times;</span>
     </button>
     <!-- <button id="download" class="btn btn-default" onclick="createNewReclamation()">Create</button> -->
     <!-- <h4 class="feature-title">TFS</h4> -->
-    <ul data-ftList>
-    </ul>
-    <div data-warningLinked class="delimeter"><span class="feature-title">Linked ticket</span><span data-linkedCreate
-            class="btn hidden" onclick="createLinkedTicket()" data-toggle="tooltip" data-placement="top"
-            title="Create Linked Ticket">
+    <!-- <ul data-ftList>
+    </ul> -->
+    <div class="delimeter"><span class="feature-title">Linked ticket</span><span data-linkedCreate class="btn hidden"
+            onclick="createLinkedTicket()" data-toggle="tooltip" data-placement="top" title="Create Ticket for 2nd Line">
             <i class="fas fa-plus " style="color: green"></i>
-        </span></div>
-    <!-- <section data-linked class="hidden">
-        <ul class="info-list">
-            <li class="info-list__entry u-mt-sm">
-                <span class="info-list__title" style="min-width: 110; display: inline-block">2nd line ticket:</span>
-                <strong class="ticket-status__label hold">Hold</strong>
-                <a class="info-list__link-to-relative">188815</a>
-            </li>
-            <li class="info-list__entry u-mt-sm">
-                <span class="info-list__title" style="min-width: 110; display: inline-block">Assignee:</span>
-                <span>Maksim Fesenko</span>
-            </li>
+        </span>
+        <section data-linked class="hidden">
+            <ul class="info-list">
+                <li class="info-list__entry u-mt-sm">
+                    <span data-line class="info-list__title" style="min-width: 95px; display: inline-block"></span>
+                    <a data-id class="info-list__link-to-relative"></a>
+                    <span data-status class="rmStatus ticket"></span>
 
-            <li class="info-list__entry u-mt-sm">
-                <span class="info-list__title" style="min-width: 110; display: inline-block">Group:</span>
-                <span>DC 1st line RU</span>
-            </li>
-        </ul>
-    </section> -->
-    <div data-menu class="menu-bottom">
-        <button id="about" class="btn btn-default btn-sm" onclick="openAboutPage()">About</button>
+                </li>
+                <!-- <li class="info-list__entry u-mt-sm">
+                    <span class="info-list__title" style="min-width: 95px; display: inline-block">Assignee:</span>
+                    <span data-assignee></span>
+                </li>
+
+                <li class="info-list__entry u-mt-sm">
+                    <span class="info-list__title" style="min-width: 95px; display: inline-block">Group:</span>
+                    <span data-group></span>
+                </li> -->
+            </ul>
+        </section>
+    </div>
+    <div class="menu-bottom">
+        <button class="btn btn-default btn-sm" onclick="openAboutPage()">About</button>
     </div>
     <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
     <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
     <script>
         var RmApp = {
-            settings: {}
+            settings: {},
         }
         var client = ZAFClient.init();
         // получаем список рекламаций из поля reclamations и заполняем список data-rmList при загрузке приложения
         client.on('app.registered', async function (data) {
+            var metadata = await client.metadata();
+            RmApp.settings = metadata.settings;
             showWarnings();
             renderWindow();
-            var metadata = await client.metadata();
             console.log("RecMan v" + metadata.version + " is loaded.");
-            RmApp.settings = metadata.settings;
-            var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
-            if (reclamations !== '' && reclamations !== null && reclamations !==
-                undefined) {
-                addReclamationsToList(reclamations);
-            }
-            // var features = await getValueFromField(RmApp.settings.featuresFieldId);
-            // if (features !== '' && features !== null && features !==
-            //     undefined) {
-            //     addFeaturesToList(features);
-            // }
         });
         // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
         client.on('ticket.save', async function (data) {
@@ -96,27 +87,17 @@
         // при изменении комментария получаем из комментария ссылку на рекламацию и добавляем ее в список data-rmList
         client.on('comment.text.changed', async function (data) {
             await getReclamationLinkFromComment();
-            renderWindow();
             // await getFeatureLinkFromComment();
         });
 
         async function showWarnings() {
             var tags = await getValueFromAPI('ticket.tags');
-            var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
-
             if (tags.indexOf("service_level_gold") > -1) {
                 addWarning('Service Level Gold');
             };
             if (tags.indexOf("premium_solution_support") > -1) {
                 addWarning('Solution Support');
             };
-            if (!linkedData || linkedData == "" || linkedData == undefined) {
-                var linked = document.querySelector('span[data-linkedCreate]');
-                linked.classList.remove('hidden');
-            } else {
-                addLinkedTicketLink(linkedData.substring(linkedData.indexOf(":") + 1,
-                    linkedData.length));
-            }
         }
 
         function addWarning(label) {
@@ -130,14 +111,30 @@
 
         async function renderWindow() {
             var quantity = 0;
+            var height = 80;
             var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
-            if (reclamations) {
+            var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
+            if (reclamations !== '' && reclamations !== null && reclamations !==
+                undefined) {
+                reclamations.split(',').forEach(async function (item) {
+                    if (item !== '') {
+                        await addLinkField(item, '');
+                    }
+                });
                 var reclamationArray = reclamations.slice(0, -1).split(',');
                 quantity += reclamationArray.length;
             }
+            if (!linkedData || linkedData == "" || linkedData == undefined) {
+                var linked = document.querySelector('span[data-linkedCreate]');
+                linked.classList.remove('hidden');
+            } else {
+                await addLinkedTicketToList(linkedData.substring(linkedData.indexOf(":") + 1,
+                    linkedData.length));
+                height += 95;
+            }
             await client.invoke('resize', {
                 width: '100%',
-                height: 400 + quantity * 20
+                height: height + quantity * 20
             })
         }
 
@@ -169,11 +166,11 @@
                     if (reclamationNumber.match(/^\d+$/)) {
                         if (reclamations && reclamations.indexOf(reclamationNumber) < 0) {
                             reclamations += reclamationNumber + ',';
-                            addLinkField(reclamationNumber, '');
+                            await addLinkField(reclamationNumber, '');
                             addReclamationTag(reclamationNumber);
                         } else if (!reclamations) {
                             reclamations = reclamationNumber + ',';
-                            addLinkField(reclamationNumber, '');
+                            await addLinkField(reclamationNumber, '');
                             addReclamationTag(reclamationNumber);
                         }
                     }
@@ -217,25 +214,36 @@
             return link.href.substring(link.href.length - 5, link.href.length);
         }
 
-        async function addLinkedTicketLink(ticketNumber) {
-            var button = document.querySelector('span[data-linkedCreate]');
-            var menu = document.querySelector('div[data-menu]');
-            var link = document.createElement('a');
-            var span = document.createElement('span');
+        async function addLinkedTicketToList(ticketNumber) {
+            var section = document.querySelector('section[data-linked');
+            var id = document.querySelector('a[data-id');
+            var line = document.querySelector('span[data-line');
+            var assignee = document.querySelector('span[data-assignee');
+            var group = document.querySelector('span[data-group');
+            var status = document.querySelector('span[data-status');
+            var linkedTicket = await getLinkedTicketData(ticketNumber);
+            //console.log(linkedTicket)
             var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
             if (linkedData.indexOf('child') > -1) {
-                span.innerHTML = '1st line ticket: ';
-            } else span.innerHTML = '2nd line ticket: ';
-            link.innerText = ticketNumber;
-            link.href = "";
-            link.setAttribute("onclick", "openTicket(this)");
-            button.classList.add('hidden');
-            document.body.insertBefore(link, menu);
-            document.body.insertBefore(span, link);
-
+                line.innerHTML = '1st line ticket:';
+            } else line.innerHTML = '2nd line ticket:';
+            id.innerText = ticketNumber;
+            id.href = "";
+            id.setAttribute("onclick", "openTicket(this)");
+            status.innerText = linkedTicket.status.capitalize();
+            status.classList.add(linkedTicket.status);
+            var urlUsers = RmApp.settings.serverUrl + '/api/v2/users/' + linkedTicket.assignee_id + '.json';
+            var fetchUsers = makeFetchBody(urlUsers, 'GET', '', RmApp.settings.tokenZen);
+            // var responseUsers = await client.request(fetchUsers);
+            // assignee.innerText = responseUsers.user.name;
+            var urlGroups = RmApp.settings.serverUrl + '/api/v2/groups/' + linkedTicket.group_id + '.json';
+            var fetchGroups = makeFetchBody(urlGroups, 'GET', '', RmApp.settings.tokenZen);
+            // var responseGroups = await client.request(fetchGroups);
+            // group.innerText = responseGroups.group.name;
+            section.classList.remove('hidden');
         }
         // добавляем ссылку на рекламацию или фичу в форму RecMan (разметка)
-        function addLinkField(reclamationNumber, featureNumber) {
+        async function addLinkField(reclamationNumber, featureNumber) {
             var rmList = document.querySelector('ul[data-rmList]');
             var ftList = document.querySelector('ul[data-ftList]');
             var li = document.createElement('li');
@@ -250,11 +258,14 @@
                 var fetchSelf = makeFetchBody(url, 'GET', '', auth);
                 client.request(fetchSelf).then(function (response) {
                     span.innerHTML = response.stateName;
+                    span.classList.add('rmStatus');
                     if (response.stateName == "Verified")
-                        span.classList.add('rmStatus-good');
+                        span.classList.add('good');
                     else if (response.stateName == "Fixed")
-                        span.classList.add('rmStatus-fixed');
-                    else span.classList.add('rmStatus-bad');
+                        span.classList.add('fixed');
+                    else span.classList.add('bad');
+                }, function (error) {
+                    console.log(error.responseJSON.Message);
                 });
                 a.innerHTML = reclamationNumber.trim();
                 a.href = 'http://rm/view/' + reclamationNumber.trim();
@@ -272,32 +283,20 @@
                 li.appendChild(a);
                 li.appendChild(closeButton);
             }
-            renderWindow();
-        }
-        // добавляем ссылку на рекламацию в форму RecMan (логика)      // какая логика?? что это??? :) commented by HelMet
-        function addReclamationsToList(reclamationsString) {
-            reclamationsString.split(',').forEach(function (item) {
-                if (item !== '') {
-                    addLinkField(item, '');
-                }
-            });
-        }
-
-        function addFeaturesToList(featureString) {
-            featureString.split(',').forEach(function (item) {
-                if (item !== '') {
-                    addLinkField('', item);
-                }
-            });
+            await client.invoke('resize', {
+                width: '100%',
+                height: window.innerHeight + 20
+            })
         }
         //кнопка
         async function createLinkedTicket() {
+            var button = document.querySelector('span[data-linkedCreate]');
+            button.classList.add('hidden');
             var createUrl = RmApp.settings.serverUrl + 'api/v2/tickets.json';
             var currentTicket = await getValueFromAPI('ticket');
             var createQuery = await createLinkedTicketQuery(currentTicket);
             var createFetch = makeFetchBody(createUrl, 'POST', createQuery, "Bearer " + RmApp.settings.tokenZen);
             var createResponse = await client.request(createFetch);
-
             var updateUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' +
                 currentTicket.id + '.json';
             var sourceQuery = {
@@ -311,11 +310,16 @@
             var updateQuery = JSON.stringify(sourceQuery);
             var updateFetch = makeFetchBody(updateUrl, 'PUT', updateQuery, "Bearer " + RmApp.settings.tokenZen);
             await client.request(updateFetch);
-            await sleep(500);
-            await addLinkedTicketLink(createResponse.ticket.id);
+            await sleep(50);
+            await addLinkedTicketToList(createResponse.ticket.id);
+            await client.invoke('resize', {
+                width: '100%',
+                height: window.innerHeight + 95
+            })
         }
 
         async function createLinkedTicketQuery(currentTicket) {
+            var currentUser = await client.get('currentUser');
             var query = {
                 ticket: {
                     subject: ((currentTicket.organization == undefined) ? "[Organization]" : currentTicket
@@ -325,9 +329,13 @@
                         public: false
                     },
                     priority: currentTicket.priority,
-                    requester_id: currentTicket.assignee.user.id,
-                    assignee_id: currentTicket.assignee.user.id,
-                    group_id: currentTicket.assignee.group.id,
+                    requester_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
+                        .currentUser.id : currentTicket.assignee.user.id,
+                    assignee_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser.currentUser
+                        .id : currentTicket.assignee.user.id,
+                    group_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser.currentUser
+                        .groups[0]
+                        .id : currentTicket.assignee.group.id,
                     ticket_form_id: currentTicket.form.id,
                     tags: currentTicket.tags,
                     custom_fields: [{
@@ -380,7 +388,11 @@
             if (newReclamations == '') {
                 removeTag('reclamation');
             }
-            renderWindow();
+            await client.invoke('resize', {
+                width: '100%',
+                height: window.innerHeight - 20
+            })
+
             // } else {
             //     return client.get('ticket.customField:custom_field_' + featuresCustomFieldId).then(function (data) {
             //         var oldFeatures = data['ticket.customField:custom_field_' + featuresCustomFieldId];
@@ -447,10 +459,10 @@
                             client.set('ticket.customField:custom_field_' + RmApp.settings
                                 .linkedDataFieldId,
                                 "child_of:" + linkedTicketId);
+                            linkedTicket = await getLinkedTicketData(linkedTicketId);
                         }
-                        linkedTicket = await getLinkedTicketData(linkedTicketId);
+                        
                     }
-                    console.log(linkedTicket);
                     if (linkedTicket.status !== 'closed') {
                         if (linkedTicket.custom_fields.find(item => item.id == RmApp.settings
                                 .reclamationsFieldId).value !== null) {
@@ -494,7 +506,6 @@
 
         function createTicketQuery(resultSet, fieldId, status) {
             var query = '';
-
             resultSet.forEach(function (reclamation) {
                 if (reclamation !== '') {
                     query += reclamation + ',';
@@ -507,30 +518,26 @@
                     '"}}}'
             } else {
                 query =
-                    '{"ticket":{"custom_fields":{"id":"' + fieldId + '","value":"' + query + ',' + '"}}}'
+                    '{"ticket":{"custom_fields":{"id":"' + fieldId + '","value":"' + query + '"}}}'
             }
             return query;
         }
 
         function createTagsQuery(resultSet) {
-
-            var query = '{"tags": ["reclamation"'
+            var source = {
+                tags: ["reclamation"]
+            }
             resultSet.forEach(function (reclamation) {
                 if (reclamation !== '') {
-                    query += ',"rm' + reclamation +
-                        '"';
+                    source.tags.push('rm' + reclamation);
                 }
             });
-            query += ']}';
+            var query = JSON.stringify(source);
             return query;
         }
         // собрать тело http-запроса
         function openTicket(link) {
             client.invoke('routeTo', 'ticket', link.innerHTML);
-        }
-
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
         }
 
         function makeFetchBody(url, type, query, auth) {
@@ -544,6 +551,14 @@
                 type: type,
                 data: query
             };
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        String.prototype.capitalize = function () {
+            return this.charAt(0).toUpperCase() + this.slice(1);
         }
     </script>
 </body>
