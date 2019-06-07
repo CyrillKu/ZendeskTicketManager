@@ -18,7 +18,7 @@
         <span class="btn" onclick="createNewReclamation()" data-toggle="tooltip" data-placement="top"
             title="Create New Reclamation"> <i class="fas fa-plus " style="color: green"></i>
         </span>
-        <ul data-rmList style="margin-bottom: 0px">
+        <ul data-rmList style="margin-top: 10px">
         </ul>
     </div>
     <button data-close type="button" class="close close-button hidden" aria-label="Close"
@@ -62,16 +62,13 @@
     <script>
         var RmApp = {
             settings: {},
-            rmHeight: 20,
-            linkedHeight: 40,
-            initHeight: 125,
-            
         }
         var client = ZAFClient.init();
         // получаем список рекламаций из поля reclamations и заполняем список data-rmList при загрузке приложения
         client.on('app.registered', async function (data) {
             var metadata = await client.metadata();
             RmApp.settings = metadata.settings;
+            showWarnings();
             renderWindow();
             console.log("RecMan v" + metadata.version + " is loaded.");
         });
@@ -96,16 +93,12 @@
 
         async function showWarnings() {
             var tags = await getValueFromAPI('ticket.tags');
-            var isAdded = false;
             if (tags.indexOf("service_level_gold") > -1) {
                 addWarning('Service Level Gold');
-                isAdded = true
             };
             if (tags.indexOf("premium_solution_support") > -1) {
                 addWarning('Solution Support');
-                isAdded = true;
             };
-            return isAdded;
         }
 
         function addWarning(label) {
@@ -118,9 +111,8 @@
         }
 
         async function renderWindow() {
-            var isAdded = await showWarnings();
             var quantity = 0;
-            var height = 125;
+            var height = 190;
             var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
             var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
             if (reclamations !== '' && reclamations !== null && reclamations !==
@@ -141,7 +133,6 @@
                     linkedData.length));
                 height += 40;
             }
-            if (isAdded) height += 40;
             await client.invoke('resize', {
                 width: '100%',
                 height: height + quantity * 20
@@ -232,6 +223,7 @@
             var group = document.querySelector('span[data-group');
             var status = document.querySelector('span[data-status');
             var linkedTicket = await getLinkedTicketData(ticketNumber);
+            //console.log(linkedTicket)
             var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
             if (linkedData.indexOf('child') > -1) {
                 line.innerHTML = '1st line ticket:';
