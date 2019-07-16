@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<products>
+	<product>
+		<zendeskName>
+		business_card_reader
+		</zendeskName>		
+		<productRegisterName>
+		BCR (Win)
+		</productRegisterName>
+	</product>
+</products>

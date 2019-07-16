@@ -61,6 +61,7 @@
     </div>
     <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
     <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
+    <script type="text/javascript" src="products.js" async></script>
     <script>
         var RmApp = {
             settings: {},
@@ -75,6 +76,7 @@
             var metadata = await client.metadata();
             RmApp.settings = metadata.settings;
             renderWindow();
+            getXML();
             console.log("RecMan v" + metadata.version + " is loaded.");
         });
         // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
