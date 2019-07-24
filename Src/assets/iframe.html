@@ -61,7 +61,7 @@
     </div>
     <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
     <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
-    <script type="text/javascript" src="products.js" async></script>
+    <script type="text/javascript" src="products.js"></script>
     <script>
         var RmApp = {
             settings: {},
@@ -76,9 +76,12 @@
             var metadata = await client.metadata();
             RmApp.settings = metadata.settings;
             renderWindow();
-            getXML();
             console.log("RecMan v" + metadata.version + " is loaded.");
+            await setProdtuctVersionOnLoad();
+
         });
+
+
         // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
         client.on('ticket.save', async function (data) {
             var status = await getValueFromAPI('ticket.status');
@@ -92,12 +95,40 @@
                         reclamations);
                 }
             }
+
         });
+
         // при изменении комментария получаем из комментария ссылку на рекламацию и добавляем ее в список data-rmList
         client.on('comment.text.changed', async function (data) {
             await getReclamationLinkFromComment();
             // await getFeatureLinkFromComment();
         });
+
+        client.on('*.changed', async function (result) {
+            await setProdtuctVersionByTag(result.newValue);
+
+        });
+
+        async function setProdtuctVersionByTag(tag) {
+            var products = await getProductsFromJson();
+            var productsKeys = Object.keys(products);
+            if (productsKeys.includes(tag)) {
+                await client.set('ticket.customField:custom_field_' + RmApp.settings.productVersionFieldId,
+                    products[tag]);
+            }
+        }
+
+        async function setProdtuctVersionOnLoad() {
+            var tags = await getValueFromAPI('ticket.tags');
+            var products = await getProductsFromJson();
+            var productsKeys = Object.keys(products);
+            var productTag = tags.filter(value => productsKeys.includes(value));
+            if (productTag.length == 1)
+                await client.set('ticket.customField:custom_field_' + RmApp.settings.productVersionFieldId,
+                    products[productTag]);
+            else await client.set('ticket.customField:custom_field_' + RmApp.settings.productVersionFieldId,
+                products["default"]);
+        }
 
         async function showWarnings() {
             var tags = await getValueFromAPI('ticket.tags');
@@ -192,7 +223,8 @@
                     }
                 }
             }
-            client.set('ticket.customField:custom_field_' + RmApp.settings.reclamationsFieldId, reclamations);
+            client.set('ticket.customField:custom_field_' + RmApp.settings.reclamationsFieldId,
+                reclamations);
         }
         // добавляем ссылку на фичу в форму RecMan (нужен рефакторинг!!!)
         async function getFeatureLinkFromComment() {
@@ -248,7 +280,8 @@
             status.classList.add(linkedTicket.status);
             subject.innerText = linkedTicket.subject;
             if (linkedTicket.assignee_id !== null) {
-                var urlUsers = RmApp.settings.serverUrl + '/api/v2/users/' + linkedTicket.assignee_id + '.json';
+                var urlUsers = RmApp.settings.serverUrl + '/api/v2/users/' + linkedTicket.assignee_id +
+                    '.json';
                 var fetchUsers = makeFetchBody(urlUsers, 'GET', '', null);
                 var responseUsers = await client.request(fetchUsers);
                 assignee.innerText = responseUsers.user.name;
@@ -329,11 +362,13 @@
             })
         }
 
-        async function createLinkedTicketQuery(currentTicket) { //передавать Country, Defect Severity Level, Product,
+        async function createLinkedTicketQuery(
+            currentTicket) { //передавать Country, Defect Severity Level, Product,
             var currentUser = await client.get('currentUser');
             var query = {
                 ticket: {
-                    subject: ((currentTicket.organization == undefined) ? "[Organization]" : currentTicket
+                    subject: ((currentTicket.organization == undefined) ? "[Organization]" :
+                        currentTicket
                         .organization.name) + ' - [Product Name] - [Subject]',
                     comment: {
                         body: "*",
@@ -342,9 +377,11 @@
                     priority: currentTicket.priority,
                     requester_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
                         .currentUser.id : currentTicket.assignee.user.id,
-                    assignee_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser.currentUser
+                    assignee_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
+                        .currentUser
                         .id : currentTicket.assignee.user.id,
-                    group_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser.currentUser
+                    group_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
+                        .currentUser
                         .groups[0].id : currentTicket.assignee.group.id,
                     ticket_form_id: currentTicket.form.id,
                     tags: currentTicket.tags,
@@ -387,7 +424,8 @@
         }
         // удалить рекламацию из списка формы RecMan (нужен рефакторинг!!!) //HelMet: ой, нужен....
         async function removeElementFromList(element) {
-            var numLength = element.previousSibling.href.length - element.previousSibling.href.lastIndexOf('/');
+            var numLength = element.previousSibling.href.length - element.previousSibling.href.lastIndexOf(
+                '/');
             var oldReclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
             var reclamationNumber = getReclamationNumberFromURL(element.previousSibling);
             var newReclamations = oldReclamations.replace(reclamationNumber + ',', '');
@@ -510,8 +548,10 @@
                         ])];
                         resultSet = resultSet.filter(reclamation => reclamation.length > 5);
                         var url = RmApp.settings.serverUrl + 'api/v2/tickets/' + linkedTicketId + '.json';
-                        var tagsUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' + linkedTicketId + '/tags.json';
-                        var ticketFetch = makeFetchBody(url, 'PUT', createTicketQuery(resultSet, RmApp.settings
+                        var tagsUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' + linkedTicketId +
+                            '/tags.json';
+                        var ticketFetch = makeFetchBody(url, 'PUT', createTicketQuery(resultSet, RmApp
+                            .settings
                             .reclamationsFieldId, linkedTicket.status), null);
                         await client.request(ticketFetch);
                         if (resultSet.length > 0) {

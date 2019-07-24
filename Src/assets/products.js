@@ -1,9 +1,5 @@
-// async function (){
-//     var response = await fetch('products.xml');
-// }
-function getXML() {
-    var promise = fetch('products.xml').then(function (data) {
-        console.log(data);
-
-    });
+async function getProductsFromJson() {
+    var json = await fetch('products.json');
+    var repsonse = await json.json();
+    return repsonse.products;
 }

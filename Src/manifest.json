@@ -25,6 +25,12 @@
       "default": "360000117189"
     },
     {
+      "name": "productVersionFieldId",
+      "type": "text",
+      "required": true,
+      "default": "360000244525"
+    },
+    {
       "name": "featuresFieldId",
       "type": "text",
       "required": true,
@@ -61,6 +67,6 @@
       "default": "3d2fdb5b0b51f5c220ca776551b2b44c11caea9a7633dee13a34fdb700dd0c41"
     }
   ],
-  "version": "1.0.7.0",
+  "version": "1.0.8.0",
   "frameworkVersion": "2.0"
 }
