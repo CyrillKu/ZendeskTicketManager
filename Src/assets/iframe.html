@@ -62,9 +62,12 @@
     <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
     <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
     <script type="text/javascript" src="products.js"></script>
+    <script type="text/javascript" src="modal.js"></script>
+
     <script>
         var RmApp = {
             settings: {},
+            products: {},
             rmHeight: 20,
             linkedHeight: 40,
             initHeight: 125,
@@ -73,26 +76,31 @@
         var client = ZAFClient.init();
         // получаем список рекламаций из поля reclamations и заполняем список data-rmList при загрузке приложения
         client.on('app.registered', async function (data) {
-            var metadata = await client.metadata();
-            RmApp.settings = metadata.settings;
+            RmApp.products = await getProductsFromJson();
+            RmApp.settings = (await client.metadata()).settings;
             renderWindow();
-            console.log("RecMan v" + metadata.version + " is loaded.");
+            console.log("RecMan v" + (await client.metadata()).version + " is loaded.");
             await setProdtuctVersionOnLoad();
-
         });
 
 
         // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
         client.on('ticket.save', async function (data) {
+            var transfer = false;
             var status = await getValueFromAPI('ticket.status');
             var comment = await getValueFromAPI('ticket.comment');
             var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
-            if (status == 'pending' || status ==
-                'solved') { //передавать в Child уведомление, если статус Parent стал Solved
-                if (comment.text.indexOf("#forSL") < 0 && comment.text !=
-                    "<p></p>") {
-                    await transferReclamationsToLinkedTicket(
-                        reclamations);
+            // var parser = new DOMParser();
+            // var doc = parser.parseFromString(comment.text, "text/html");
+            // var links = Array.from(doc.links);
+            // if (links) links.forEach(link => {
+            //     if (link.innerHTML == "1st Line Support") transfer = true;
+            // });
+            if (comment.text.indexOf("#forFL") > -1) transfer = true;
+            if (transfer || status == 'pending' || status ==
+                'solved') {
+                if (comment.text.indexOf("#forSL") < 0 && comment.text != "<p></p>") {
+                    await transferReclamationsToLinkedTicket(reclamations);
                 }
             }
 
@@ -106,28 +114,26 @@
 
         client.on('*.changed', async function (result) {
             await setProdtuctVersionByTag(result.newValue);
-
         });
 
         async function setProdtuctVersionByTag(tag) {
-            var products = await getProductsFromJson();
-            var productsKeys = Object.keys(products);
+            var productsKeys = Object.keys(RmApp.products);
             if (productsKeys.includes(tag)) {
                 await client.set('ticket.customField:custom_field_' + RmApp.settings.productVersionFieldId,
-                    products[tag]);
+                    RmApp.products[tag]);
             }
         }
 
         async function setProdtuctVersionOnLoad() {
             var tags = await getValueFromAPI('ticket.tags');
-            var products = await getProductsFromJson();
-            var productsKeys = Object.keys(products);
+            var currentProductVersion = await getValueFromField(RmApp.settings.productVersionFieldId);
+            var productsKeys = Object.keys(RmApp.products);
             var productTag = tags.filter(value => productsKeys.includes(value));
             if (productTag.length == 1)
                 await client.set('ticket.customField:custom_field_' + RmApp.settings.productVersionFieldId,
-                    products[productTag]);
+                    RmApp.products[productTag]);
             else await client.set('ticket.customField:custom_field_' + RmApp.settings.productVersionFieldId,
-                products["default"]);
+                RmApp.products["default"]);
         }
 
         async function showWarnings() {
@@ -170,8 +176,11 @@
                 quantity += reclamationArray.length;
             }
             if (!linkedData || linkedData == "" || linkedData == undefined) {
-                var linked = document.querySelector('span[data-linkedCreate]');
-                linked.classList.remove('hidden');
+                if (await getValueFromAPI('ticket.status') !== 'closed') {
+                    var linked = document.querySelector('span[data-linkedCreate]');
+                    linked.classList.remove('hidden');
+
+                }
             } else {
                 var isParent = (linkedData.indexOf('child') > -1) ? false : true;
                 await addLinkedTicketToList(linkedData.substring(linkedData.indexOf(":") + 1,
@@ -359,7 +368,7 @@
             await client.invoke('resize', {
                 width: '100%',
                 height: window.innerHeight + 120
-            })
+            });
         }
 
         async function createLinkedTicketQuery(
@@ -374,6 +383,7 @@
                         body: "*",
                         public: false
                     },
+                    status: "new",
                     priority: currentTicket.priority,
                     requester_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
                         .currentUser.id : currentTicket.assignee.user.id,
@@ -510,9 +520,12 @@
                                 }
                             }
                         }
-                        var query = JSON.stringify(sourceQuery);
-                        var ticketFetch = makeFetchBody(url, 'PUT', query, null);
-                        await client.request(ticketFetch);
+                        var linkedTicket = await getLinkedTicketData(linkedTicketId);
+                        if (linkedTicket.status !== 'closed') {
+                            var query = JSON.stringify(sourceQuery);
+                            var ticketFetch = makeFetchBody(url, 'PUT', query, null);
+                            await client.request(ticketFetch);
+                        }
                     }
                     return;
                 } else {
