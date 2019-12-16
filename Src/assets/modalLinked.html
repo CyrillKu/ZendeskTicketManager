@@ -1,37 +1,138 @@
-<html lang="en" style="overflow-y:auto">
+<html lang="en" style="overflow: hidden;">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="https://assets.zendesk.com/apps/sdk-assets/css/2/zendesk_garden.css" type="text/css">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <link rel="stylesheet" href="main.css">
 </head>
 
 <body>
-    <div class="modal-header">
-        <h3 class="modal-title">Send Message to 1st Line</h5>
+    <div style="text-align: center">
+        <h5 class="modal-title">Linked ticket will be created.</h5>
+        <p class="modal-title">Please check the filling of the following fields:</p>
 
 
     </div>
     <div class="modal-body">
-        <div class="mb-3">
-            <input type="text" class="form-control" placeholder="Enter you message here"
-                aria-label="Recipient's username" aria-describedby="button-addon2">
-        </div>
+        <form class="needs-validation" novalidate>
+            <div class="form-group row">
+                <label for="inputPassword" class="col-md">Subject</label>
+                <div class="col-md">
+                    <input type="text" class="form-control" id="subject" placeholder="Enter ticket subject here">
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="product" class="col-md">Product</label>
+                <div class="col-md">
+                    <input type="text" class="form-control" id="product" readonly placeholder="N/A" required>
+                    <div class="invalid-feedback">
+                        Please fill in the Product of ABBYY field and Submit
+                    </div>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="build" class="col-md">Build</label>
+                <div class="col-md">
+                    <input type="text" class="form-control" id="build" readonly placeholder="N/A" required>
+                    <div class="invalid-feedback">
+                        Please fill in the Build field
+                    </div>
+                </div>
+
+            </div>
+            <div class="form-group row">
+                <label for="country" class="col-md">Country</label>
+                <div class="col-md">
+                    <input type="text" class="form-control" id="country" readonly placeholder="N/A" required>
+                    <div class="invalid-feedback">
+                        Please fill in the Country field
+                    </div>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="defect" class="col-md">Defect Severity Level</label>
+                <div class="col-md">
+                    <input type="text" class="form-control" id="defect" readonly placeholder="N/A" required>
+                    <div class="invalid-feedback">
+                        Please fill in the Defect Severity Level field
+                    </div>
+                </div>
+            </div>
+        </form>
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeModal()">Close</button>
-        <button type="button" class="btn btn-primary" onclick="sendMessage()">Send Message</button>
+    <div style="text-align: center">
+        <button type="button" id="btn_create" class="btn btn-primary" onclick="confirmLinked()">Create</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+
     </div>
 
     <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
     <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
-    <script type="text/javascript" src="modal.js"></script>
+    <script type="text/javascript" src="helper.js"></script>
     <script>
-        let modalClient = ZAFClient.init();
+        var modalClient = ZAFClient.init();
+        var clients = null;
+        var modalHeight = 500;
+        modalClient.invoke('resize', {
+            width: '100%',
+            height: modalHeight
+        });
+        modalClient.on('app.registered', async function () {
+            clients = await getAppClients(modalClient);
+            var settings = (await modalClient.metadata()).settings;
+            var subject = document.getElementById('subject');
+            var product = document.getElementById('product');
+            var build = document.getElementById('build');
+            var country = document.getElementById('country');
+            var defect = document.getElementById('defect');
+            var btn_create = document.getElementById('btn_create');
+            var count = 0;
+
+            product.value = await getValueFromField(settings.productVersionFieldId, clients.parentClient);
+            build.value = await getValueFromField(settings.buildFieldId);
+            country.value = capitalize(await getValueFromField(settings.countryFieldId));
+            defect.value = capitalize((await getValueFromField(settings.defectFieldId)).slice(10));
+            if (!product.value || product.value.length < 5) {
+                product.classList.add('is-invalid');
+                btn_create.setAttribute("disabled", "");
+                count++;
+            }
+            if (!build.value || build.value.length < 5) {
+                btn_create.setAttribute("disabled", "");
+                build.classList.add('is-invalid');
+                count++;
+            }
+            if (!country.value || country.value.length < 5) {
+                btn_create.setAttribute("disabled", "");
+                country.classList.add('is-invalid');
+                count++;
+            }
+            if (!defect.value || defect.value.length < 5) {
+                btn_create.setAttribute("disabled", "");
+                defect.classList.add('is-invalid');
+                count++;
+            }
+            modalClient.invoke('resize', {
+                width: '100%',
+                height: modalHeight + 25 * count
+            });
+
+        });
+
+
+        async function confirmLinked() {
+            var subject = document.getElementById('subject');
+            var response = {
+                subject: subject.value,
+            }
+            clients.parentClient.trigger('recieve_modal_data_trigger', response);
+            closeModal();
+        }
+
 
         function closeModal() {
             modalClient.invoke('destroy');

@@ -1,5 +1,5 @@
 {
-  "name": "ABBYY Ticket Manager",
+  "name": "Reclamation Manager",
   "author": {
     "name": "Cyrill Kunitskiy",
     "email": "cyrill.kunitskiy@abbyy.com",
@@ -34,7 +34,7 @@
       "name": "featuresFieldId",
       "type": "text",
       "required": true,
-      "default": "360004044179"
+      "default": "360001047500"
     },
     {
       "name": "serialFieldId",
@@ -55,18 +55,6 @@
       "default": "360002522099"
     },
     {
-      "name": "defectFieldId",
-      "type": "text",
-      "required": true,
-      "default": "360004223900"
-    },
-    {
-      "name": "countryFieldId",
-      "type": "text",
-      "required": true,
-      "default": "360000371539"
-    },
-    {
       "name": "tokenZen",
       "type": "text",
       "required": true,
@@ -79,6 +67,6 @@
       "default": "3d2fdb5b0b51f5c220ca776551b2b44c11caea9a7633dee13a34fdb700dd0c41"
     }
   ],
-  "version": "1.0.8.2",
+  "version": "1.0.8.1",
   "frameworkVersion": "2.0"
 }
