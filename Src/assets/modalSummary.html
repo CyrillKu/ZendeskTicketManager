@@ -1,0 +1,107 @@
+<html lang="en" style="overflow: hidden;">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="https://assets.zendesk.com/apps/sdk-assets/css/2/zendesk_garden.css" type="text/css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="main.css">
+</head>
+
+<body>
+    <div id="container">
+        <div style="text-align: center">
+            <h5 class="modal-title">Ticket summary.</h5>
+        </div>
+        <div class="modal-body">
+            <form>
+                <div class="form-group">
+                    <label for="what_area">What</label>
+                    <textarea class="form-control" id="what_area" rows="1"
+                        placeholder="What is the issue and its symptoms?" style="height: auto;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="where_area">Where</label>
+                    <textarea class="form-control" id="where_area" rows="1"
+                        placeholder="Describe the client's environment and specify the exact software build number"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="when_area">When</label>
+                    <textarea class="form-control" id="when_area" rows="1"
+                        placeholder="What user actions seem to cause the issue (i.e. how can it be reproduced)?"></textarea>
+                </div>
+            </form>
+        </div>
+        <div style="text-align: center">
+            <button type="button" id="btn_create" class="btn btn-primary" onclick="updateSummaryField()">Update</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+
+        </div>
+    </div>
+
+    <!-- https://github.com/zendesk/zendesk_app_framework_sdk -->
+    <script type="text/javascript" src="https://assets.zendesk.com/apps/sdk/2.0/zaf_sdk.js"></script>
+    <script type="text/javascript" src="helper.js"></script>
+    <script async>
+        var modalClient = ZAFClient.init();
+        var clients = null;
+        var what = document.getElementById('what_area');
+        var where = document.getElementById('where_area');
+        var when = document.getElementById('when_area');
+        var btn_create = document.getElementById('btn_create');
+
+        modalClient.on('app.registered', async function () {
+            clients = await getAppClients(modalClient);
+            var settings = (await modalClient.metadata()).settings;
+            var summaryText = await getValueFromField(settings.summaryFieldId, clients.parentClient);
+            var summary = JSON.parse(summaryText);
+            what.value = summary.what;
+            what.style.height = 'auto';
+            what.style.height = (what.scrollHeight) + 'px';
+            where.value = summary.where;
+            where.style.height = 'auto';
+            where.style.height = (where.scrollHeight) + 'px';
+            when.value = summary.when;
+            when.style.height = 'auto';
+            when.style.height = (when.scrollHeight) + 'px';
+            resizeWindow();
+        });
+
+        var tx = document.getElementsByTagName('textarea');
+        for (var i = 0; i < tx.length; i++) {
+            tx[i].setAttribute('style', 'height:' + (tx[i].scrollHeight) + 'px;overflow-y:hidden;');
+            tx[i].addEventListener("input", OnInput, false);
+        }
+
+        function OnInput() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            resizeWindow()
+        }
+
+        function resizeWindow() {
+            modalClient.invoke('resize', {
+                width: '600px',
+                height: document.getElementById('container').offsetHeight
+            });
+        }
+
+        async function updateSummaryField() {
+            var response = {
+                what: what.value,
+                where: where.value,
+                when: when.value
+            }
+            clients.parentClient.trigger('recieve_summaryModal_data_trigger', response);
+            closeModal();
+        }
+
+        function closeModal() {
+            modalClient.invoke('destroy');
+        }
+    </script>
+</body>
+
+</html>

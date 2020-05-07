@@ -46,50 +46,41 @@ async function deleteLinkedData() {
     await client.request(fetch);
 }
 
-function addWarning(category, row, label = null) {
-    var container = document.querySelector('span[data-' + category + ']');
-    var div = document.querySelector('div[data-container' + row + ']');
-    if (label) {
-        var span = document.createElement('span');
-        span.classList.add('ck_label');
-        if (label.includes("Standard") || label.includes("Low") || label.includes("Normal")) {
-            span.classList.add('good');
-        } else if (label.includes("High") || label.includes("Extended")) {
-            span.classList.add('warning');
-        } else if (label.includes("Critical") || label.includes("Premier") || label.includes("Major") || label.includes("Urgent")) {
-            span.classList.add('bad');
-        }
-        span.innerHTML = label;
-        container.appendChild(span);
-    }
-    container.classList.remove('hidden');
-    div.classList.remove('hidden');
-}
-
-
 async function showWarnings() {
     var tags = await getValueFromAPI('ticket.tags');
     var priority = await getValueFromAPI('ticket.priority');
-    var isAdded = false;
-    if (tags.indexOf("premium_solution_support") > -1) {
-        addWarning("ps", 1);
-        isAdded = true;
-    };
+    var rows = 0;
     tags.forEach(tag => {
         if (tag.indexOf('smua') > -1) {
             addWarning("smua", 1, capitalize(tag.substring(tag.indexOf('_') + 1, tag.length)));
-            isAdded = true;
+            rows++;
         }
-        if (tag.indexOf('severity') > -1) {
+        if (tag.indexOf("vip_client") > -1) {
+            addWarning("vip", 1, 'VIP');
+        };
+        if (tag.includes('severity1_critical') || tag.includes('severity2_major') || tag.includes('severity3_normal') || tag.includes('severity4_low')) {
             addWarning("severity", 2, capitalize(tag.substring(tag.indexOf('_') + 1, tag.length)));
-            isAdded = true;
+            rows++;
+        }
+        // if (tag.indexOf("premium_solution_support") > -1) {
+        //     addWarning("ps", 1);
+        //     isAdded = true;
+        // };
+
+        if (tag.includes('priority_raised')) {
+            document.querySelector('i[data-raised]').classList.remove('hidden')
+        }
+
+        if (tag.includes('escalation_open') || tag.includes('escalation_closed')) {
+            addWarning("escalation", 3, capitalize(tag.substring(tag.indexOf('_') + 1, tag.length)));
+            rows++;
         }
     });
     if (priority && priority != '-') {
-        addWarning("priority", 2, capitalize(priority))
-        isAdded = true;
+        addWarning("priority", 2, capitalize(priority));
     }
-    return isAdded;
+
+    return rows;
 }
 
 async function getValueFromField(fieldId, parentClient = null) {
@@ -141,48 +132,45 @@ async function createNewReclamation() {
         requestNumber + '%5dZendesk+request+%23' + requestNumber +
         '%5b%2furl%5d&tags=helpdesk'
     );
-}
-
-async function removeElementFromList(element) {
-    if (element.parentNode.parentNode.id == 'rmList') {
-        var current = await getValueFromField(RmApp.settings.reclamationsFieldId);
-        var reclamationNumber = getNumberFromUrl(element.previousSibling);
-        var updatedRM = current.replace(reclamationNumber + ',', '');
-        removeTag('rm' + reclamationNumber);
-        client.set('ticket.customField:custom_field_' + RmApp.settings.reclamationsFieldId,
-            updatedRM);
-        element.parentNode.remove();
-        if (updatedRM == '') removeTag('reclamation');
-    } else if (element.parentNode.parentNode.id == 'ftList') {
-        var current = await getValueFromField(RmApp.settings.featuresFieldId);
-        var taskNumber = getNumberFromUrl(element.previousSibling);
-        var updatedFT = current.replace(taskNumber + ',', '');
-        removeTag('tfs' + taskNumber);
-        client.set('ticket.customField:custom_field_' + RmApp.settings.featuresFieldId,
-            updatedFT);
-        element.parentNode.remove();
-        if (updatedFT == '') removeTag('tfs');
-    }
-    resizeWindow(-RmApp.rmHeight)
+    addTag("waiting_for_fix");
 }
 
 function openAboutPage() {
     window.open('https://wiki.abbyy.com/display/SP/Integration+with+Reclamation+Manager');
 }
 
-async function launchLinkedModal() {
+async function launchModal(url, size = {}) {
     await client.invoke('instances.create', {
         location: 'modal',
-        url: 'assets/modalLinked.html'
+        url: url,
+        size: size,
     });
 }
 
-function addTag(value) {
-    client.invoke('ticket.tags.add', value);
+async function addTag(value) {
+    var sourceQuery = {
+        tags: [value]
+    }
+    var updateQuery = JSON.stringify(sourceQuery);
+    var updateUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' +
+        await getValueFromAPI('ticket.id') + '/tags.json';
+    var updateFetch = makeFetchBody(updateUrl, 'PUT', updateQuery, RmApp
+        .settings.tokenZen);
+    await client.request(updateFetch);
+    // client.invoke('ticket.tags.add', value);
 }
 // удалить тег
-function removeTag(value) {
-    client.invoke('ticket.tags.remove', value);
+async function removeTag(value) {
+    var sourceQuery = {
+        tags: [value]
+    }
+    var updateQuery = JSON.stringify(sourceQuery);
+    var updateUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' +
+        await getValueFromAPI('ticket.id') + '/tags.json';
+    var updateFetch = makeFetchBody(updateUrl, 'DELETE', updateQuery, RmApp
+        .settings.tokenZen);
+    await client.request(updateFetch);
+    // client.invoke('ticket.tags.remove', value);
 }
 
 async function getLinkedTicketData(linkedTicketId) {
@@ -208,14 +196,19 @@ function makeFetchBody(url, type, query, auth) {
         var headers = {
             "Authorization": 'Bearer ' + auth
         }
+        if (auth.includes("Basic")) headers = {
+            "Authorization": auth
+        };
     } else headers = " ";
-    return fetchSelf = {
+    return {
         url: url,
         headers: headers,
         contentType: 'application/json',
         secureProtocol: 'TLSv1_2_method',
         type: type,
-        data: query
+        data: query,
+        cors: true
+
     };
 }
 async function processEscalation(message) {
@@ -248,7 +241,7 @@ async function replyToConf(id, participants, message) {
         "/side_conversations/" + id + "/reply.json";
     var message = {
         message: {
-            subject: "ETA revised",
+            from: await getValueFromAPI('currentUser.email'),
             html_body: message,
             to: participants
         }
@@ -263,6 +256,32 @@ function capitalize(str) {
     return str[0].toUpperCase() + str.slice(1);
 }
 
+function getLinksFromCommentText(str) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(str, "text/html");
+    return Array.from(doc.links);
+}
+
+async function updateField(fieldId, value) {
+    var sourceQuery = {
+        ticket: {
+            custom_fields: [{
+                id: fieldId,
+                value: value
+            }]
+        }
+    }
+    var updateQuery = JSON.stringify(sourceQuery);
+    var updateUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' +
+        await getValueFromAPI('ticket.id'); + '.json';
+    var updateFetch = makeFetchBody(updateUrl, 'PUT', updateQuery, RmApp
+        .settings.tokenZen);
+    await client.request(updateFetch);
+}
+
+async function updateTicket(id) {
+
+}
 
 function sleep(time) {
     return new Promise((resolve) => setTimeout(resolve, time));

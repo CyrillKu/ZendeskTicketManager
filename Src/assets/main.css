@@ -1,7 +1,9 @@
 .menu-bottom {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
     position: absolute;
     bottom: 0;
-    right: 0;
 }
 
 .linked-subject {
@@ -31,6 +33,15 @@
 .warning {
     background-color: #FFB648;
     color: #703B15;
+}
+
+.vip {
+    letter-spacing: 2px;
+    padding-left: 5px;
+    padding-top: 3px;
+    font-weight: bold;
+    font-family: serif;
+    background-color: gold;
 }
 
 .good {
@@ -100,4 +111,8 @@
 .link {
     cursor: pointer;
     color: #1976d2;
+}
+
+textarea {
+    resize: none;
 }

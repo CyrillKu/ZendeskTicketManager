@@ -9,7 +9,8 @@
   "private": true,
   "location": {
     "support": {
-      "ticket_sidebar": "assets/iframe.html"
+      "ticket_sidebar": "assets/iframe.html",
+      "new_ticket_sidebar": "assets/iframe.html"
     }
   },
   "parameters": [{
@@ -17,6 +18,12 @@
       "type": "text",
       "required": true,
       "default": "https://abbyy1515753043.zendesk.com/"
+    },
+    {
+      "name": "recmanUrl",
+      "type": "text",
+      "required": true,
+      "default": "https://ba-public.westeurope.cloudapp.azure.com/recman-proxy/api/reclamation/"
     },
     {
       "name": "reclamationsFieldId",
@@ -67,18 +74,30 @@
       "default": "360000371539"
     },
     {
+      "name": "summaryFieldId",
+      "type": "text",
+      "required": true,
+      "default": "360006440119"
+    },
+    {
       "name": "tokenZen",
       "type": "text",
       "required": true,
-      "default": "71580c9f458221416ef8b30136324e3e8d260b7c2560334f6aaa28fe3f21a5ba"
+      "default": "1da781295d9da31380d966c53950d67481562d39179224d14d5de824da09297f"
     },
     {
       "name": "tokenRm",
       "type": "text",
       "required": true,
-      "default": "3d2fdb5b0b51f5c220ca776551b2b44c11caea9a7633dee13a34fdb700dd0c41"
+      "default": "e38f13cc9e69148ff32cb48a437ee681711ea6a80188e92d9982293004a52555"
+    },
+    {
+      "name": "tokenTFS",
+      "type": "text",
+      "required": true,
+      "default": "eba7svtgdfin5i6kk66ycy3kl423a62y2x7dtmtttbthrpvypdva"
     }
   ],
-  "version": "1.0.8.2",
+  "version": "1.0.8.4",
   "frameworkVersion": "2.0"
 }

@@ -93,9 +93,11 @@
             var count = 0;
 
             product.value = await getValueFromField(settings.productVersionFieldId, clients.parentClient);
-            build.value = await getValueFromField(settings.buildFieldId);
-            country.value = capitalize(await getValueFromField(settings.countryFieldId));
-            defect.value = capitalize((await getValueFromField(settings.defectFieldId)).slice(10));
+            build.value = await getValueFromField(settings.buildFieldId, clients.parentClient);
+            country.value = capitalize(await getValueFromField(settings.countryFieldId, clients
+                .parentClient));
+            defect.value = capitalize((await getValueFromField(settings.defectFieldId, clients
+                .parentClient)).slice(10));
             if (!product.value || product.value.length < 5) {
                 product.classList.add('is-invalid');
                 btn_create.setAttribute("disabled", "");
@@ -129,7 +131,7 @@
             var response = {
                 subject: subject.value,
             }
-            clients.parentClient.trigger('recieve_modal_data_trigger', response);
+            clients.parentClient.trigger('recieve_linkedModal_data_trigger', response);
             closeModal();
         }
 

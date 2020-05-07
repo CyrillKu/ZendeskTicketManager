@@ -10,8 +10,6 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
         integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="stylesheet" href="main.css">
-    <link rel="stylesheet" href="loader.css">
-
 </head>
 
 <body>
@@ -19,12 +17,18 @@
         <div class="delimeter" style="max-width: 100%; word-wrap: normal;">
             <div data-container1 class="hidden">
                 <span data-smua class="feature-title hidden">SMUA:</span>
-                <span data-ps class="feature-title hidden">PS:<i class="fas fa-check"
-                        style="color: green; margin: 0 5"></i></span>
+                <span data-vip class="feature-title hidden">Client:</span>
+
+                <!-- <span data-ps class="feature-title hidden">PS:<i class="fas fa-check"
+                        style="color: green; margin: 0 5"></i></span> -->
             </div>
             <div data-container2 class="hidden">
                 <span data-severity class="feature-title hidden">Severity:</span>
-                <span data-priority class="feature-title hidden">Priority:</span>
+                <span data-priority class="feature-title hidden">Priority:</span><i data-raised
+                    class="fas fa-arrow-up hidden" style="color: red;"></i>
+            </div>
+            <div data-container3 class="hidden">
+                <span data-escalation class="feature-title hidden">Escalation:</span>
             </div>
         </div>
 
@@ -46,16 +50,17 @@
             onclick="removeElementFromList(this)">
             <span aria-hidden="true" style="color: red">&times;</span>
         </button>
-        <div class="delimeter"><span class="feature-title border">Linked ticket</span><span data-linkedCreate
-                class="btn hidden" onclick="launchLinkedModal()" data-toggle="tooltip" data-placement="top"
+        <div data-linkedBody class="delimeter"><span class="feature-title border">Linked ticket</span>
+            <!-- <span data-linkedCreate
+                class="btn hidden" onclick="launchModal('assets/modalLinked.html')" data-toggle="tooltip" data-placement="top"
                 title="Create Ticket for 2nd Line">
                 <i class="fas fa-plus " style="color: green"></i>
-            </span>
+            </span> -->
             <section data-linked class="hidden">
                 <ul class="linked-body">
                     <li class="info-list__entry u-mt-sm">
                         <span data-line></span>
-                        <a data-id></a>
+                        <span data-id class="link"></span>
                         <span data-status class="ck_label"></span>
                     </li>
                     <li class="info-list__entry u-mt-sm"><strong>Assignee:</strong>
@@ -68,6 +73,8 @@
                 </script>
         </div>
         <div class="menu-bottom">
+            <button class="btn btn-default btn-sm"
+                onclick="launchModal('assets/modalSummary.html', {width:600})">Summary</button>
             <button class="btn btn-default btn-sm" onclick="openAboutPage()">About</button>
         </div>
     </div>
@@ -78,12 +85,13 @@
     <script type="text/javascript" src="render.js"></script>
     <script>
         var RmApp = {
+            numbers: [" "],
             settings: {},
             rmHeight: 20,
             initHeight: 240,
             currHeight: null,
             linkedHeight: 100,
-            warningHeight: 46,
+            warningRowHeight: 30,
         }
         var client = ZAFClient.init();
         // получаем список рекламаций из поля reclamations и заполняем список data-rmList при загрузке приложения
@@ -94,11 +102,14 @@
             await updateFollowUps();
         });
         // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
-        client.on('ticket.save', async function (data) {
+        client.on('ticket.submit.done', async function (data) {
             var transfer = false;
             var status = await getValueFromAPI('ticket.status');
             var comment = await getValueFromAPI('ticket.comment');
             if (comment.text.indexOf("#forFL") > -1) transfer = true;
+            if (comment.text.toLowerCase().includes("taken by ps")) {
+                await addTag("taken_by_ps");
+            }
             if (transfer || status == 'pending' || status ==
                 'solved') {
                 if (comment.text.indexOf("#forSL") < 0 && comment.text != "<p></p>") {
@@ -109,62 +120,66 @@
             if (comment.text.indexOf("Revised ETA") > -1) {
                 await processEscalation(comment.text);
             }
-            // await getReclamationLinkFromComment();
         });
         // при изменении комментария получаем из комментария ссылку на рекламацию и добавляем ее в список data-rmList
         client.on('comment.text.changed', async function (data) {
-            await getReclamationLinkFromComment();
+            await getLinksFromComment();
         });
         //получаем инфу из modal в родителе
-        client.on('recieve_modal_data_trigger', async (data) => {
+        client.on('recieve_linkedModal_data_trigger', async (data) => {
             var clients = await getAppClients(client);
             await createLinkedTicket(data);
+        })
+
+        client.on('recieve_summaryModal_data_trigger', async (data) => {
+            var clients = await getAppClients(client);
+            await updateField(RmApp.settings.summaryFieldId, JSON.stringify(data));
         })
 
         client.on('ticket.updated', async function () {
             window.location.reload();
         });
         // добавляем ссылку на рекламацию в форму RecMan (нужен рефакторинг!!!)
-        async function getReclamationLinkFromComment() {
+        async function getLinksFromComment() {
             var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
             var tasks = await getValueFromField(RmApp.settings.featuresFieldId);
             var comment = await getValueFromAPI('ticket.comment');
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(comment.text, "text/html");
-            var links = Array.from(doc.links);
+            var links = getLinksFromCommentText(comment.text);
             //фильтруем все извлеченные из комментария ссылки по ключам 'reclamation' и '/rm/'
-            if (links) links.forEach(async link => {
-                if (link.href.indexOf('List') < 0) {
+            if (links.length > 0) links.forEach(async link => {
+                if (!link.href.includes('List')) {
                     var number = getNumberFromUrl(link);
-                    if (number.match(/^\d+$/)) {
-                        if ((link.href.indexOf('reclamation') > -1 || link.href.indexOf('/rm/') > -1)) {
-                            if (reclamations && reclamations.indexOf(number) < 0) {
+                    if (number.match(/^\d+$/) && !RmApp.numbers.includes(number)) {
+                        RmApp.numbers.push(number);
+                        if ((link.href.includes('/reclamation') || link.href.includes('/rm/'))) {
+                            if (reclamations && !reclamations.includes(number)) {
                                 reclamations += number + ',';
-                                await addLinkField(number, '');
-                                addTag('rm' + number);
+                                // await addLinkField(number, '');
                             } else if (!reclamations) {
                                 reclamations = number + ',';
-                                await addLinkField(number, '');
-                                addTag('rm' + number);
+                                // await addLinkField(number, '');
                             }
-                            addTag('reclamation');
-                            client.set('ticket.customField:custom_field_' + RmApp.settings
-                                .reclamationsFieldId, reclamations);
+                            // await addTag('reclamation');
+                            await addTag('rm' + number);
+                            await updateField(RmApp.settings.reclamationsFieldId, reclamations);
                         }
-                        if (link.href.indexOf('tfs') > -1) {
+                        if (link.href.includes('tfs')) {
                             if (tasks && tasks.indexOf(number) < 0) {
                                 tasks += number + ',';
-                                await addLinkField('', number);
-                                addTag('tfs' + number);
                             } else if (!tasks) {
                                 tasks = number + ',';
-                                await addLinkField('', number);
-                                addTag('tfs' + number);
                             }
-                            addTag('tfs');
-                            client.set('ticket.customField:custom_field_' + RmApp.settings
-                                .featuresFieldId, tasks);
-
+                            // await addTag('tfs')
+                            if (link.href.includes('tfs/HQ') || link.href.includes('tfs.abbyy.com/HQ'))
+                                await addTag('tfs' +
+                                    number + 'h');
+                            if (link.href.includes('tfs/SDK') || link.href.includes(
+                                    'tfs.abbyy.com/SDK')) await addTag(
+                                'tfs' + number + 's');
+                            if (link.href.includes('tfs/Cloud') || link.href.includes(
+                                    'tfs.abbyy.com/Cloud')) await addTag(
+                                'tfs' + number + 'c');
+                            await updateField(RmApp.settings.featuresFieldId, tasks);
                         }
                     }
                 }
@@ -172,7 +187,8 @@
         }
         //инициализировать процедуру создания дочернего тикета
         async function createLinkedTicket(data) {
-            hideLinkedPlus();
+            // var button = document.querySelector('span[data-linkedCreate]');
+            // button.classList.add('hidden');
             var createUrl = RmApp.settings.serverUrl + 'api/v2/tickets.json';
             var currentTicket = await getValueFromAPI('ticket');
             var createQuery = await createLinkedTicketQuery(currentTicket, data);
