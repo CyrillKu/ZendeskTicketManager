@@ -1,9 +1,8 @@
 .menu-bottom {
+    margin-top: 20px;
     width: 100%;
     display: flex;
     justify-content: space-between;
-    position: absolute;
-    bottom: 0;
 }
 
 .linked-subject {

@@ -56,14 +56,16 @@
             clients = await getAppClients(modalClient);
             var settings = (await modalClient.metadata()).settings;
             var summaryText = await getValueFromField(settings.summaryFieldId, clients.parentClient);
-            var summary = JSON.parse(summaryText);
-            what.value = summary.what;
+            if (summaryText) {
+                var summary = JSON.parse(summaryText);
+                what.value = summary.what;
+                where.value = summary.where;
+                when.value = summary.when;
+            }
             what.style.height = 'auto';
             what.style.height = (what.scrollHeight) + 'px';
-            where.value = summary.where;
             where.style.height = 'auto';
             where.style.height = (where.scrollHeight) + 'px';
-            when.value = summary.when;
             when.style.height = 'auto';
             when.style.height = (when.scrollHeight) + 'px';
             resizeWindow();

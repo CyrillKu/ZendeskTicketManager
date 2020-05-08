@@ -13,12 +13,11 @@
 </head>
 
 <body>
-    <div id="content">
+    <div id="container">
         <div class="delimeter" style="max-width: 100%; word-wrap: normal;">
             <div data-container1 class="hidden">
                 <span data-smua class="feature-title hidden">SMUA:</span>
                 <span data-vip class="feature-title hidden">Client:</span>
-
                 <!-- <span data-ps class="feature-title hidden">PS:<i class="fas fa-check"
                         style="color: green; margin: 0 5"></i></span> -->
             </div>
@@ -92,291 +91,59 @@
             currHeight: null,
             linkedHeight: 100,
             warningRowHeight: 30,
+            updateBody: {
+                ticket: {
+                    additional_tags: [],
+                    remove_tags: [],
+                    custom_fields: []
+                }
+            }
         }
         var client = ZAFClient.init();
         // получаем список рекламаций из поля reclamations и заполняем список data-rmList при загрузке приложения
         client.on('app.registered', async function (data) {
             RmApp.settings = (await client.metadata()).settings;
             await renderWindow();
-            console.log("RecMan v" + (await client.metadata()).version + " is loaded.");
             await updateFollowUps();
+            console.log("RecMan v" + (await client.metadata()).version + " is loaded.");
         });
         // по сабмиту выполняем запланированные запросы для добавления и удаления рекламаций и тэгов в родительском тикете
-        client.on('ticket.submit.done', async function (data) {
-            var transfer = false;
+        client.on('ticket.save', async function (data) {
             var status = await getValueFromAPI('ticket.status');
             var comment = await getValueFromAPI('ticket.comment');
-            if (comment.text.indexOf("#forFL") > -1) transfer = true;
-            if (comment.text.toLowerCase().includes("taken by ps")) {
-                await addTag("taken_by_ps");
-            }
-            if (transfer || status == 'pending' || status ==
-                'solved') {
-                if (comment.text.indexOf("#forSL") < 0 && comment.text != "<p></p>") {
-                    var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
-                    await transferReclamationsToLinkedTicket(reclamations);
+            if (comment.text.includes("#forFL") || status == 'pending' || status == 'solved') {
+                if (!comment.text.includes("#forSL") && comment.text != "<p></p>") {
+                    // var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
+                    // await transferReclamationsToLinkedTicket(reclamations);
                 }
             }
             if (comment.text.indexOf("Revised ETA") > -1) {
                 await processEscalation(comment.text);
+            }
+            var result = await applyChangesToTicket();
+            if (result) return true;
+            else {
+                console.log(result)
             }
         });
         // при изменении комментария получаем из комментария ссылку на рекламацию и добавляем ее в список data-rmList
         client.on('comment.text.changed', async function (data) {
             await getLinksFromComment();
         });
-        //получаем инфу из modal в родителе
-        client.on('recieve_linkedModal_data_trigger', async (data) => {
-            var clients = await getAppClients(client);
-            await createLinkedTicket(data);
-        })
+        //получаем инфу из modalLinked в родителе
+        // client.on('recieve_linkedModal_data_trigger', async (data) => {
+        //     var clients = await getAppClients(client);
+        //     await createLinkedTicket(data);
+        // })
 
         client.on('recieve_summaryModal_data_trigger', async (data) => {
             var clients = await getAppClients(client);
-            await updateField(RmApp.settings.summaryFieldId, JSON.stringify(data));
+            updateField(RmApp.settings.summaryFieldId, JSON.stringify(data));
         })
 
         client.on('ticket.updated', async function () {
-            window.location.reload();
+            // window.location.reload();
         });
-        // добавляем ссылку на рекламацию в форму RecMan (нужен рефакторинг!!!)
-        async function getLinksFromComment() {
-            var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
-            var tasks = await getValueFromField(RmApp.settings.featuresFieldId);
-            var comment = await getValueFromAPI('ticket.comment');
-            var links = getLinksFromCommentText(comment.text);
-            //фильтруем все извлеченные из комментария ссылки по ключам 'reclamation' и '/rm/'
-            if (links.length > 0) links.forEach(async link => {
-                if (!link.href.includes('List')) {
-                    var number = getNumberFromUrl(link);
-                    if (number.match(/^\d+$/) && !RmApp.numbers.includes(number)) {
-                        RmApp.numbers.push(number);
-                        if ((link.href.includes('/reclamation') || link.href.includes('/rm/'))) {
-                            if (reclamations && !reclamations.includes(number)) {
-                                reclamations += number + ',';
-                                // await addLinkField(number, '');
-                            } else if (!reclamations) {
-                                reclamations = number + ',';
-                                // await addLinkField(number, '');
-                            }
-                            // await addTag('reclamation');
-                            await addTag('rm' + number);
-                            await updateField(RmApp.settings.reclamationsFieldId, reclamations);
-                        }
-                        if (link.href.includes('tfs')) {
-                            if (tasks && tasks.indexOf(number) < 0) {
-                                tasks += number + ',';
-                            } else if (!tasks) {
-                                tasks = number + ',';
-                            }
-                            // await addTag('tfs')
-                            if (link.href.includes('tfs/HQ') || link.href.includes('tfs.abbyy.com/HQ'))
-                                await addTag('tfs' +
-                                    number + 'h');
-                            if (link.href.includes('tfs/SDK') || link.href.includes(
-                                    'tfs.abbyy.com/SDK')) await addTag(
-                                'tfs' + number + 's');
-                            if (link.href.includes('tfs/Cloud') || link.href.includes(
-                                    'tfs.abbyy.com/Cloud')) await addTag(
-                                'tfs' + number + 'c');
-                            await updateField(RmApp.settings.featuresFieldId, tasks);
-                        }
-                    }
-                }
-            });
-        }
-        //инициализировать процедуру создания дочернего тикета
-        async function createLinkedTicket(data) {
-            // var button = document.querySelector('span[data-linkedCreate]');
-            // button.classList.add('hidden');
-            var createUrl = RmApp.settings.serverUrl + 'api/v2/tickets.json';
-            var currentTicket = await getValueFromAPI('ticket');
-            var createQuery = await createLinkedTicketQuery(currentTicket, data);
-            var createFetch = makeFetchBody(createUrl, 'POST', createQuery, null);
-            var createResponse = await client.request(createFetch);
-            var updateUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' +
-                currentTicket.id + '.json';
-            var sourceQuery = {
-                ticket: {
-                    custom_fields: [{
-                        id: RmApp.settings.linkedDataFieldId,
-                        value: "parent_of:" + createResponse.ticket.id
-                    }]
-                }
-            }
-            var updateQuery = JSON.stringify(sourceQuery);
-            var updateFetch = makeFetchBody(updateUrl, 'PUT', updateQuery, null);
-            await client.request(updateFetch);
-            await addLinkedTicketToList(createResponse.ticket.id, true);
-        }
-        // прокинуть список рекламаций и тэги в Parent Ticket ( на 1 линию), а также оставить сообщение 1 линии об обновлении запроса на 2 линии
-        async function transferReclamationsToLinkedTicket(reclamationsFromField) {
-            var parentReclamationArray = [];
-            var childReclamationArray = [];
-            var parentReclamations = null;
-            var isParent = null;
-            var linkedTicketId = null;
-            var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
-            if (linkedData && linkedData !== undefined) {
-                isParent = (linkedData.indexOf('child') < 0);
-                if (isParent) {
-                    var status = await getValueFromAPI('ticket.status');
-                    var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
-                    if (status == 'solved') {
-                        linkedTicketId = linkedData.substring(linkedData.indexOf(':') + 1,
-                            linkedData.length);
-                        var url = RmApp.settings.serverUrl + 'api/v2/tickets/' + linkedTicketId +
-                            '.json';
-                        var sourceQuery = {
-                            ticket: {
-                                comment: {
-                                    public: false,
-                                    body: "Parent ticket has been Solved."
-                                }
-                            }
-                        }
-                        var linkedTicket = await getLinkedTicketData(linkedTicketId);
-                        if (linkedTicket.status !== 'closed') {
-                            var query = JSON.stringify(sourceQuery);
-                            var ticketFetch = makeFetchBody(url, 'PUT', query, null);
-                            await client.request(ticketFetch);
-                        }
-                    }
-                    return;
-                } else {
-                    linkedTicketId = linkedData.substring(linkedData.indexOf(':') + 1,
-                        linkedData.length);
-                    var linkedTicket = await getLinkedTicketData(linkedTicketId);
-                    if (linkedTicket.status === 'closed') {
-                        linkedTicketId = linkedTicket.followup_ids[linkedTicket.followup_ids
-                            .length - 1];
-                        if (linkedTicketId !== undefined) {
-                            client.set('ticket.customField:custom_field_' + RmApp.settings
-                                .linkedDataFieldId,
-                                "child_of:" + linkedTicketId);
-                            linkedTicket = await getLinkedTicketData(linkedTicketId);
-                        }
-
-                    }
-                    if (linkedTicket.status !== 'closed') {
-                        if (linkedTicket.custom_fields.find(item => item.id == RmApp.settings
-                                .reclamationsFieldId).value !== null) {
-                            parentReclamations = linkedTicket.custom_fields.find(item =>
-                                item.id == RmApp.settings.reclamationsFieldId).value;
-                        }
-
-                        if (reclamationsFromField !== null) {
-                            childReclamationArray = reclamationsFromField.slice(0, -1).split(',');
-                        }
-                        if (parentReclamations !== null) {
-                            parentReclamationArray = parentReclamations.slice(0, -1).split(',');
-                        }
-                        var resultSet = [...new Set([...parentReclamationArray, ...
-                            childReclamationArray
-                        ])];
-                        resultSet = resultSet.filter(reclamation => reclamation.length > 5);
-                        var url = RmApp.settings.serverUrl + 'api/v2/tickets/' + linkedTicketId +
-                            '.json';
-                        var tagsUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' +
-                            linkedTicketId +
-                            '/tags.json';
-                        var ticketFetch = makeFetchBody(url, 'PUT', createTicketQuery(resultSet,
-                            RmApp
-                            .settings
-                            .reclamationsFieldId, linkedTicket.status), null);
-                        await client.request(ticketFetch);
-                        if (resultSet.length > 0) {
-                            var tagsFetch = makeFetchBody(tagsUrl, 'PUT', createTagsQuery(
-                                resultSet), null);
-                            try {
-                                await client.request(tagsFetch);
-                            } catch (error) {
-                                console.log(error);
-                            }
-
-                        }
-                    }
-                }
-            } else return true;
-        }
-        //заполнить запрос на создание Linked Ticekt информацией из полей тикета
-        async function createLinkedTicketQuery(currentTicket, data) {
-            var currentUser = await client.get('currentUser');
-            var query = {
-                ticket: {
-                    subject: ((currentTicket.organization == undefined) ? "[Organization]" :
-                        currentTicket.organization.name) + ' - ' + (await getValueFromField(RmApp.settings
-                        .productVersionFieldId)) + ' - ' + data.subject,
-                    comment: {
-                        body: "*",
-                        public: false
-                    },
-                    status: "new",
-                    priority: currentTicket.priority,
-                    requester_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
-                        .currentUser.id : currentTicket.assignee.user.id,
-                    assignee_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
-                        .currentUser
-                        .id : currentTicket.assignee.user.id,
-                    group_id: (Object.keys(currentTicket.assignee).length === 0) ? currentUser
-                        .currentUser
-                        .groups[0].id : currentTicket.assignee.group.id,
-                    ticket_form_id: currentTicket.form.id,
-                    tags: currentTicket.tags,
-                    custom_fields: [{
-                            id: RmApp.settings.reclamationsFieldId,
-                            value: await getValueFromField(RmApp.settings.reclamationsFieldId)
-                        },
-                        {
-                            id: RmApp.settings.buildFieldId,
-                            value: await getValueFromField(RmApp.settings.buildFieldId)
-                        },
-                        {
-                            id: RmApp.settings.serialFieldId,
-                            value: await getValueFromField(RmApp.settings.serialFieldId)
-                        },
-                        {
-                            id: RmApp.settings.linkedDataFieldId,
-                            value: "child_of:" + currentTicket.id
-                        },
-                    ],
-                }
-            }
-            return JSON.stringify(query);
-        }
-        //заполнить запрос на комментарий в Parent Ticket
-        function createTicketQuery(resultSet, fieldId, status) {
-            var source = {
-                ticket: {
-                    comment: {
-                        public: false,
-                        body: "Child ticket has been updated. This ticket previous status was: " +
-                            status
-                            .toUpperCase()
-                    },
-                    custom_fields: {
-                        id: fieldId,
-                        value: [...resultSet].join(',') + ','
-                    }
-                }
-            }
-            if (status == 'solved') {
-                delete source.ticket.comment;
-            }
-            return JSON.stringify(source);
-        }
-        //заполнить запрос на теги в Parent Ticket
-        function createTagsQuery(resultSet) {
-            var source = {
-                tags: ["reclamation"]
-            }
-            resultSet.forEach(function (reclamation) {
-                if (reclamation !== '') {
-                    source.tags.push('rm' + reclamation);
-                }
-            });
-            return JSON.stringify(source);
-        }
     </script>
 </body>
 

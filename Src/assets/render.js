@@ -1,3 +1,46 @@
+//отрисовать окно приложения
+async function renderWindow() {
+    await showWarnings();
+    var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
+    var tasks = await getValueFromField(RmApp.settings.featuresFieldId);
+    var tags = await getValueFromAPI('ticket.tags');
+    var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
+    if (reclamations) {
+        reclamations.split(',').forEach(async function (number) {
+            if (number !== '') {
+                await addLinkField(number, '');
+            }
+        });
+    }
+    if (tasks) {
+        tasks.split(',').forEach(async function (number) {
+            if (number !== '') {
+                tags.forEach(async function (tag) {
+                    if (tag.includes(number) && tag.slice(-1) == "s") await addLinkField('', number, "SDK");
+                    if (tag.includes(number) && tag.slice(-1) == "h") await addLinkField('', number, "HQ");
+                    if (tag.includes(number) && tag.slice(-1) == "c") await addLinkField('', number, "Cloud");
+                    if (tag.includes(number) && !isNaN(parseInt(tag.slice(-1)))) {
+                        await addLinkField('', number, "HQ");
+                    }
+                });
+            }
+        });
+    }
+    if (!linkedData) {
+        var container = document.querySelector('div[data-linkedBody]');
+        container.classList.add('hidden');
+        // if (await getValueFromAPI('ticket.status') !== 'closed') {
+        //     var linked = document.querySelector('span[data-linkedCreate]');
+        //     linked.classList.remove('hidden');
+        // }
+    } else {
+        var isParent = (linkedData.indexOf('child') > -1) ? false : true;
+        await addLinkedTicketToList(linkedData.substring(linkedData.indexOf(":") + 1,
+            linkedData.length), isParent);
+    }
+    resizeWindow();
+}
+
 async function addLinkField(reclamationNumber, featureNumber, project = "") {
     var rmList = document.querySelector('ul[data-rmList]');
     var ftList = document.querySelector('ul[data-ftList]');
@@ -40,7 +83,7 @@ async function addLinkField(reclamationNumber, featureNumber, project = "") {
         li.appendChild(a);
         li.appendChild(closeButton);
     }
-    resizeWindow(RmApp.rmHeight);
+    resizeWindow();
 }
 
 async function addLinkedTicketToList(ticketNumber, isParent) {
@@ -102,104 +145,30 @@ function addWarning(category, row, label = null) {
 }
 
 async function removeElementFromList(element) {
+    RmApp.numbers.splice(RmApp.numbers.findIndex(elem => elem === element), 1, '');
     if (element.parentNode.parentNode.id == 'rmList') {
         var current = await getValueFromField(RmApp.settings.reclamationsFieldId);
-        var reclamationNumber = getNumberFromUrl(element.previousSibling);
-        var updatedRM = current.replace(reclamationNumber + ',', '');
-        removeTag('rm' + reclamationNumber);
-        client.set('ticket.customField:custom_field_' + RmApp.settings.reclamationsFieldId,
-            updatedRM);
-        element.parentNode.remove();
-        // if (updatedRM == '') removeTag('reclamation');
+        var updatedRM = current.replace(getNumberFromUrl(element.previousSibling) + ',', '');
+        removeTag('rm' + getNumberFromUrl(element.previousSibling));
+        updateField(RmApp.settings.reclamationsFieldId, updatedRM);
+        if (updatedRM == '') removeTag('reclamation');
     } else if (element.parentNode.parentNode.id == 'ftList') {
-        element.parentNode.remove();
-        // if (updatedFT == '') removeTag('tfs');
         var current = await getValueFromField(RmApp.settings.featuresFieldId);
-        var taskNumber = getNumberFromUrl(element.previousSibling);
-        var updatedFT = current.replace(taskNumber + ',', '');
+        var updatedFT = current.replace(getNumberFromUrl(element.previousSibling) + ',', '');
         var tags = await getValueFromAPI('ticket.tags');
         tags.forEach(function (tag) {
-            if (tag.includes(taskNumber)) removeTag(tag);
+            if (tag.includes(getNumberFromUrl(element.previousSibling))) removeTag(tag);
         })
-        var sourceQuery = {
-            ticket: {
-                custom_fields: [{
-                    id: RmApp.settings.featuresFieldId,
-                    value: updatedFT
-                }]
-            }
-        }
-        var updateQuery = JSON.stringify(sourceQuery);
-        var updateUrl = RmApp.settings.serverUrl + 'api/v2/tickets/' +
-            await getValueFromAPI('ticket.id'); + '.json';
-        var updateFetch = makeFetchBody(updateUrl, 'PUT', updateQuery, RmApp
-            .settings.tokenZen);
-        await client.request(updateFetch);
+        if (updatedFT == '') removeTag('tfs');
+        updateField(RmApp.settings.featuresFieldId, updatedFT);
     }
-    resizeWindow(-RmApp.rmHeight)
-}
-//отрисовать окно приложения
-async function renderWindow() {
-    var rows = await showWarnings();
-    var finalHeight = 0;
-    var quantity = 0;
-    var reclamations = await getValueFromField(RmApp.settings.reclamationsFieldId);
-    var tasks = await getValueFromField(RmApp.settings.featuresFieldId);
-    var tags = await getValueFromAPI('ticket.tags');
-    var linkedData = await getValueFromField(RmApp.settings.linkedDataFieldId);
-    if (reclamations) {
-        reclamations.split(',').forEach(async function (number) {
-            if (number !== '') {
-                await addLinkField(number, '');
-            }
-        });
-        var reclamationArray = reclamations.slice(0, -1).split(',');
-        quantity += reclamationArray.length;
-    }
-    if (tasks) {
-        tasks.split(',').forEach(async function (number) {
-            if (number !== '') {
-                tags.forEach(async function (tag) {
-                    if (tag.includes(number) && tag.slice(-1) == "s") await addLinkField('', number, "SDK");
-                    if (tag.includes(number) && tag.slice(-1) == "h") await addLinkField('', number, "HQ");
-                    if (tag.includes(number) && tag.slice(-1) == "c") await addLinkField('', number, "Cloud");
-                    if (tag.includes(number) && !isNaN(parseInt(tag.slice(-1)))) {
-                        await addLinkField('', number, "HQ");
-                    }
-                });
-            }
-        });
-        var tasksArray = tasks.slice(0, -1).split(',');
-        quantity += tasksArray.length;
-    }
-    if (!linkedData) {
-        var container = document.querySelector('div[data-linkedBody]');
-        container.classList.add('hidden');
-        // if (await getValueFromAPI('ticket.status') !== 'closed') {
-        //     var linked = document.querySelector('span[data-linkedCreate]');
-        //     linked.classList.remove('hidden');
-        // }
-    } else {
-        var isParent = (linkedData.indexOf('child') > -1) ? false : true;
-        await addLinkedTicketToList(linkedData.substring(linkedData.indexOf(":") + 1,
-            linkedData.length), isParent);
-        finalHeight += RmApp.linkedHeight;
-    }
-    if (rows > 0) finalHeight += RmApp.warningRowHeight * rows;
-    resizeWindow(finalHeight + quantity * RmApp.rmHeight);
-    RmApp.currHeight = RmApp.initHeight + finalHeight + quantity * RmApp.rmHeight;
+    element.parentNode.remove();
+    resizeWindow();
 }
 
-async function resizeWindow(value) {
-    if (RmApp.currHeight) {
-        await client.invoke('resize', {
-            width: '100%',
-            height: RmApp.currHeight + value
-        })
-        RmApp.currHeight += value;
-    } else
-        await client.invoke('resize', {
-            width: '100%',
-            height: RmApp.initHeight + value
-        })
+function resizeWindow() {
+    client.invoke('resize', {
+        width: '100%',
+        height: document.getElementById('container').offsetHeight
+    });
 }
